@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Venta {{ venta.numero_completo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-receipt"></i> Detalle de Venta</h2>
+    <div>
+        <a href="{{ url_for('descargar_pdf', venta_id=venta.id) }}"
+           class="btn btn-success" target="_blank">
+            <i class="bi bi-file-pdf"></i> Descargar PDF
+        </a>
+
+        {% if venta.estado == 'ENVIADO' %}
+            <!-- Si ya fue enviado, mostrar botones de descarga -->
+            <a href="{{ url_for('descargar_xml', venta_id=venta.id) }}"
+               class="btn btn-info">
+                <i class="bi bi-file-code"></i> Descargar XML
+            </a>
+            <a href="{{ url_for('descargar_cdr', venta_id=venta.id) }}"
+               class="btn btn-primary">
+                <i class="bi bi-shield-check"></i> Descargar CDR
+            </a>
+        {% else %}
+            <!-- Si aún no fue enviado, mostrar botón de envío -->
+            <form action="{{ url_for('enviar_sunat', venta_id=venta.id) }}"
+                  method="POST"
+                  style="display: inline;"
+                  onsubmit="return confirm('¿Estás seguro de enviar este comprobante a SUNAT?');">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send"></i> Enviar a SUNAT
+                </button>
+            </form>
+        {% endif %}
+
+        <a href="{{ url_for('ventas_list') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Información General -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Información General</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>N° Comprobante:</th>
+                        <td><strong>{{ venta.numero_completo }}</strong></td>
+                    </tr>
+                    {% if venta.numero_orden %}
+                    <tr>
+                        <th>N° Orden:</th>
+                        <td><span class="badge bg-info">{{ venta.numero_orden }}</span></td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Estado:</th>
+                        <td>
+                            {% if venta.estado == 'PENDIENTE' %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% elif venta.estado == 'ENVIADO' %}
+                            <span class="badge bg-success">Enviado a SUNAT</span>
+                            {% elif venta.estado == 'ACEPTADO' %}
+                            <span class="badge bg-success">Aceptado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Emisión:</th>
+                        <td>{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
+                    </tr>
+                    {% if venta.fecha_envio_sunat %}
+                    <tr>
+                        <th>Fecha Envío SUNAT:</th>
+                        <td>
+                            <i class="bi bi-check-circle text-success"></i>
+                            {{ venta.fecha_envio_sunat.strftime('%d/%m/%Y %H:%M') }}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if venta.mensaje_sunat %}
+                    <tr>
+                        <th>Respuesta SUNAT:</th>
+                        <td>
+                            <span class="badge bg-info">{{ venta.mensaje_sunat }}</span>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Vendedor:</th>
+                        <td>{{ venta.vendedor.nombre }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del Cliente -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Cliente</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Nombre:</th>
+                        <td>{{ venta.cliente.nombre_completo }}</td>
+                    </tr>
+                    <tr>
+                        <th>{{ venta.cliente.tipo_documento }}:</th>
+                        <td>{{ venta.cliente.numero_documento }}</td>
+                    </tr>
+                    {% if venta.cliente.direccion %}
+                    <tr>
+                        <th>Dirección:</th>
+                        <td>{{ venta.cliente.direccion }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detalle de Productos -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h5 class="mb-0">Detalle de Productos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="text-center">Cantidad</th>
+                        <th class="text-end">Precio Unit.</th>
+                        <th class="text-end">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in venta.items %}
+                    <tr>
+                        <td>{{ item.producto_nombre }}</td>
+                        <td class="text-center">{{ "%.2f"|format(item.cantidad) }}</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(item.precio_unitario) }}</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(item.subtotal) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-active">
+                        <td colspan="3" class="text-end"><strong>TOTAL:</strong></td>
+                        <td class="text-end"><strong>S/ {{ "%.2f"|format(venta.total) }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

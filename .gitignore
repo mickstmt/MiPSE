@@ -1,0 +1,63 @@
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# Variables de entorno
+.env
+
+# Base de datos
+*.db
+*.sqlite3
+
+# Certificados
+certificados/*
+!certificados/.gitkeep
+
+# Comprobantes generados
+comprobantes/*
+!comprobantes/.gitkeep
+
+# XML generados (SUNAT)
+xml_generados/*
+!xml_generados/.gitkeep
+
+# CDR recibidos (SUNAT)
+cdr_recibidos/*
+!cdr_recibidos/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Flask
+instance/
+.webassets-cache
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+*_debug.xml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos sensibles adicionales
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Archivos de Windows problemáticos
+nul
+.claude/

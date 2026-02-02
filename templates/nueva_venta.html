@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Venta{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-plus-circle"></i> Nueva Venta</h2>
+    <a href="{{ url_for('ventas_list') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+
+<form method="POST" id="formVenta">
+    <div class="row">
+        <!-- Datos del Cliente -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Datos del Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Documento</label>
+                        <select class="form-select" id="tipo_documento">
+                            <option value="DNI">DNI</option>
+                            <option value="RUC">RUC</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Número de Documento</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="numero_documento" 
+                                   placeholder="Ingrese DNI o RUC" maxlength="11" required>
+                            <button class="btn btn-primary" type="button" id="btnBuscar">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="datosCliente" style="display: none;">
+                        <input type="hidden" id="cliente_id" name="cliente_id">
+                        <div class="alert alert-success">
+                            <strong><i class="bi bi-person-check"></i> Cliente:</strong>
+                            <p class="mb-0" id="nombreCliente"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Datos de la Venta -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Datos de la Venta</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Serie</label>
+                        <input type="text" class="form-control" value="BB001" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">N° de Orden (Opcional)</label>
+                        <input type="text" class="form-control" name="numero_orden" 
+                               placeholder="Ej: 012345678">
+                        <small class="text-muted">Campo opcional para control interno</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos -->
+    <div class="card mt-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Productos</h5>
+            <button type="button" class="btn btn-success btn-sm" id="btnAgregarItem">
+                <i class="bi bi-plus"></i> Agregar Producto
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table" id="tablaProductos">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Producto</th>
+                            <th style="width: 15%;">Cantidad</th>
+                            <th style="width: 20%;">Precio Unit.</th>
+                            <th style="width: 20%;">Subtotal</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsContainer">
+                        <!-- Items se agregan dinámicamente -->
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                            <td><strong>S/ <span id="totalVenta">0.00</span></strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-end mt-3">
+        <button type="submit" class="btn btn-primary btn-lg" id="btnGuardar" disabled>
+            <i class="bi bi-save"></i> Guardar Venta
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let itemCount = 0;
+
+// Buscar cliente por DNI/RUC
+document.getElementById('btnBuscar').addEventListener('click', function() {
+    const tipo = document.getElementById('tipo_documento').value;
+    const numero = document.getElementById('numero_documento').value;
+    
+    if (!numero) {
+        alert('Ingrese el número de documento');
+        return;
+    }
+    
+    if (tipo === 'DNI' && numero.length !== 8) {
+        alert('El DNI debe tener 8 dígitos');
+        return;
+    }
+    
+    if (tipo === 'RUC' && numero.length !== 11) {
+        alert('El RUC debe tener 11 dígitos');
+        return;
+    }
+    
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Buscando...';
+    
+    fetch(`/api/buscar-cliente/${tipo}/${numero}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('cliente_id').value = data.cliente.id;
+                document.getElementById('nombreCliente').textContent = data.cliente.nombre_completo;
+                document.getElementById('datosCliente').style.display = 'block';
+                verificarFormulario();
+            } else {
+                alert('No se encontró información del cliente');
+            }
+        })
+        .catch(error => {
+            alert('Error al buscar cliente: ' + error);
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-search"></i> Buscar';
+        });
+});
+
+// Buscar al presionar Enter
+document.getElementById('numero_documento').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btnBuscar').click();
+    }
+});
+
+// Agregar item
+document.getElementById('btnAgregarItem').addEventListener('click', function() {
+    itemCount++;
+    const html = `
+        <tr data-item="${itemCount}">
+            <td>
+                <input type="text" class="form-control" name="producto_nombre[]" 
+                       placeholder="Nombre del producto" required>
+            </td>
+            <td>
+                <input type="number" class="form-control item-cantidad" name="cantidad[]" 
+                       min="0.01" step="0.01" value="1" required>
+            </td>
+            <td>
+                <input type="number" class="form-control item-precio" name="precio_unitario[]" 
+                       min="0.01" step="0.01" placeholder="0.00" required>
+            </td>
+            <td>
+                <input type="text" class="form-control item-subtotal" readonly value="0.00">
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm btn-eliminar">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+    document.getElementById('itemsContainer').insertAdjacentHTML('beforeend', html);
+    verificarFormulario();
+});
+
+// Calcular subtotales
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('item-cantidad') || e.target.classList.contains('item-precio')) {
+        const row = e.target.closest('tr');
+        const cantidad = parseFloat(row.querySelector('.item-cantidad').value) || 0;
+        const precio = parseFloat(row.querySelector('.item-precio').value) || 0;
+        const subtotal = cantidad * precio;
+        row.querySelector('.item-subtotal').value = subtotal.toFixed(2);
+        calcularTotal();
+    }
+});
+
+// Eliminar item
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.btn-eliminar')) {
+        e.target.closest('tr').remove();
+        calcularTotal();
+        verificarFormulario();
+    }
+});
+
+// Calcular total
+function calcularTotal() {
+    let total = 0;
+    document.querySelectorAll('.item-subtotal').forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
+    document.getElementById('totalVenta').textContent = total.toFixed(2);
+}
+
+// Verificar si el formulario está completo
+function verificarFormulario() {
+    const clienteId = document.getElementById('cliente_id').value;
+    const items = document.querySelectorAll('#itemsContainer tr').length;
+    document.getElementById('btnGuardar').disabled = !(clienteId && items > 0);
+}
+
+// Agregar primer item automáticamente
+document.getElementById('btnAgregarItem').click();
+</script>
+{% endblock %}

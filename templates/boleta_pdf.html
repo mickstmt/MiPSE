@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 20px;
+        }
+        .header {
+            text-align: center;
+            border: 2px solid #000;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .empresa {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        .total {
+            text-align: right;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="empresa">{{ empresa_nombre }}</div>
+        <div>RUC: {{ empresa_ruc }}</div>
+        <div>{{ empresa_direccion }}</div>
+        <div style="margin-top: 10px; font-size: 14px;">
+            <strong>BOLETA DE VENTA ELECTRÓNICA</strong><br>
+            {{ numero_comprobante }}
+        </div>
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <strong>Cliente:</strong> {{ cliente_nombre }}<br>
+        <strong>{{ cliente_tipo_doc }}:</strong> {{ cliente_numero_doc }}<br>
+        <strong>Fecha de Emisión:</strong> {{ fecha_emision }}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Descripción</th>
+                <th>Cantidad</th>
+                <th>P. Unit.</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.producto_nombre }}</td>
+                <td>{{ item.cantidad }}</td>
+                <td>S/ {{ "%.2f"|format(item.precio_unitario) }}</td>
+                <td>S/ {{ "%.2f"|format(item.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total">
+        TOTAL: S/ {{ "%.2f"|format(total) }}
+    </div>
+</body>
+</html>

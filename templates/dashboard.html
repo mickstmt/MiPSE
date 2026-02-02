@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+    <a href="{{ url_for('nueva_venta') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nueva Venta
+    </a>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Ventas</h6>
+                <h2 class="mb-0">{{ total_ventas }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card" style="border-left-color: #f59e0b;">
+            <div class="card-body">
+                <h6 class="text-muted">Pendientes de Envío</h6>
+                <h2 class="mb-0">{{ ventas_pendientes }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card" style="border-left-color: #10b981;">
+            <div class="card-body">
+                <h6 class="text-muted">Enviadas a SUNAT</h6>
+                <h2 class="mb-0">{{ ventas_enviadas }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Últimas Ventas -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Últimas Ventas</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>N° Comprobante</th>
+                        <th>Cliente</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venta in ultimas_ventas %}
+                    <tr>
+                        <td><strong>{{ venta.numero_completo }}</strong></td>
+                        <td>{{ venta.cliente.nombre_completo }}</td>
+                        <td>S/ {{ "%.2f"|format(venta.total) }}</td>
+                        <td>
+                            {% if venta.estado == 'PENDIENTE' %}
+                            <span class="badge bg-warning">Pendiente</span>
+                            {% elif venta.estado == 'ENVIADO' %}
+                            <span class="badge bg-success">Enviado</span>
+                            {% elif venta.estado == 'ACEPTADO' %}
+                            <span class="badge bg-success">Aceptado</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ venta.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No hay ventas registradas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
