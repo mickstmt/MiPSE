@@ -1,176 +1,254 @@
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.units import mm
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
 from datetime import datetime
 import os
+import decimal
+from utils import number_to_words_es
 
 def generar_pdf_boleta(venta, output_path):
     """
-    Genera un PDF de la boleta electrónica
+    Genera un PDF de la boleta electrónica con el formato solicitado por el usuario
     """
     try:
-        # Crear el PDF
+        # Configuración de página con márgenes mínimos
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
-            rightMargin=30,
-            leftMargin=30,
-            topMargin=30,
-            bottomMargin=30
+            rightMargin=10*mm,
+            leftMargin=10*mm,
+            topMargin=10*mm,
+            bottomMargin=10*mm
         )
         
-        # Contenedor para los elementos
         elements = []
         styles = getSampleStyleSheet()
         
-        # Estilo personalizado para el título
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=14,
-            textColor=colors.HexColor('#2563eb'),
-            spaceAfter=30,
-            alignment=TA_CENTER
-        )
+        # Estilos personalizados
+        style_norm = ParagraphStyle('Normal_Custom', parent=styles['Normal'], fontSize=8, leading=10)
+        style_bold = ParagraphStyle('Bold_Custom', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold')
+        style_header = ParagraphStyle('Header_Custom', parent=style_bold, textColor=colors.whitesmoke, alignment=TA_CENTER)
+        style_small = ParagraphStyle('Small_Custom', parent=styles['Normal'], fontSize=7, leading=9)
+        style_right = ParagraphStyle('Right_Custom', parent=styles['Normal'], fontSize=8, leading=10, alignment=TA_RIGHT)
+        style_right_bold = ParagraphStyle('RightBold_Custom', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)
+
+        # Columna 1: Logo (Ajustado para preservar proporción)
+        logo_path = os.path.join('static', 'img', 'logo.png')
+        if os.path.exists(logo_path):
+            from PIL import Image as PILImage
+            img_temp = PILImage.open(logo_path)
+            img_w, img_h = img_temp.size
+            img_temp.close()
+            
+            # Ajustar a un máximo de 40mm x 30mm manteniendo la proporción
+            max_w = 40 * mm
+            max_h = 30 * mm
+            aspect = img_h / img_w
+            
+            if (max_w * aspect) <= max_h:
+                final_w = max_w
+                final_h = max_w * aspect
+            else:
+                final_h = max_h
+                final_w = max_h / aspect
+                
+            logo = Image(logo_path, width=final_w, height=final_h)
+        else:
+            logo = Paragraph("<b>Logo</b>", style_norm)
+
+        # Columna 2: Datos de la Empresa
+        empresa_ruc = os.getenv('EMPRESA_RUC', '10433050709')
+        empresa_nombre = os.getenv('EMPRESA_RAZON_SOCIAL', 'IZISTORE PERU')
+        empresa_dir = os.getenv('EMPRESA_DIRECCION', 'Av. Fray Bartolome de las Casas 249, SMP')
         
-        # Estilo para texto centrado
-        centered_style = ParagraphStyle(
-            'Centered',
-            parent=styles['Normal'],
-            alignment=TA_CENTER,
-            fontSize=10
-        )
-        
-        # HEADER - Datos de la empresa
-        empresa_data = [
-            [Paragraph('<b>IZISTORE PERU</b>', centered_style)],
-            [Paragraph('RUC: 10433050709', centered_style)],
-            [Paragraph('Av Fray Bartolome de las Casas 249', centered_style)],
-            [Paragraph('San Martin de Porres - Lima', centered_style)],
-            [Paragraph('Tel: 935403614', centered_style)],
-            [Paragraph('ventas@izistoreperu.com', centered_style)],
+        empresa_info = [
+            [Paragraph(f'<b>{empresa_nombre}</b>', ParagraphStyle('EmpName', parent=style_norm, fontSize=12, leading=14))],
+            [Paragraph(f'{empresa_dir}', style_small)],
         ]
-        
-        empresa_table = Table(empresa_data, colWidths=[6*inch])
-        empresa_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOX', (0, 0), (-1, -1), 2, colors.black),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f3f4f6')),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        empresa_info_tab = Table(empresa_info, colWidths=[80*mm])
+        empresa_info_tab.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 5*mm),
         ]))
-        elements.append(empresa_table)
-        elements.append(Spacer(1, 0.2*inch))
-        
-        # Título del comprobante
-        comprobante_data = [
-            [Paragraph('<b>BOLETA DE VENTA ELECTRÓNICA</b>', title_style)],
-            [Paragraph(f'<b>{venta.numero_completo}</b>', centered_style)],
+
+        # Columna 3: Recuadro RUC / Comprobante
+        ruc_box_data = [
+            [Paragraph(f'RUC: {empresa_ruc}', style_norm)],
+            [Paragraph('BOLETA DE VENTA<br/>ELECTRÓNICA', ParagraphStyle('BoletaTitle', parent=style_norm, fontSize=11, leading=13, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+            [Paragraph(f'Nro : {venta.numero_completo}', style_norm)],
         ]
-        
-        comprobante_table = Table(comprobante_data, colWidths=[6*inch])
-        comprobante_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('BOX', (0, 0), (-1, -1), 2, colors.black),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e0e7ff')),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ruc_box_tab = Table(ruc_box_data, colWidths=[60*mm])
+        ruc_box_tab.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('TOPPADDING', (0,0), (-1,-1), 2*mm),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2*mm),
+            ('GRID', (0,1), (0,1), 0, colors.gray), # Separador sutil opcional
+            ('BACKGROUND', (0,1), (0,1), colors.lightgrey),
         ]))
-        elements.append(comprobante_table)
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Datos del cliente
-        cliente_data = [
-            ['Cliente:', venta.cliente.nombre_completo],
-            [f'{venta.cliente.tipo_documento}:', venta.cliente.numero_documento],
-            ['Fecha de Emisión:', venta.fecha_emision.strftime('%d/%m/%Y %H:%M')],
-            ['Vendedor:', venta.vendedor.nombre],
-        ]
-        
-        if venta.numero_orden:
-            cliente_data.insert(0, ['N° Orden:', venta.numero_orden])
-        
-        cliente_table = Table(cliente_data, colWidths=[1.5*inch, 4.5*inch])
-        cliente_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+
+        header_main_tab = Table([[logo, empresa_info_tab, ruc_box_tab]], colWidths=[45*mm, 85*mm, 60*mm])
+        header_main_tab.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ]))
-        elements.append(cliente_table)
-        elements.append(Spacer(1, 0.3*inch))
+        elements.append(header_main_tab)
+        elements.append(Spacer(1, 10))
+
+        # 2. SECCIÓN INFO (Cliente, Venta)
+        # ----------------------------------------------------------------------
         
-        # Detalle de productos
-        productos_data = [
-            ['Descripción', 'Cantidad', 'P. Unit.', 'Subtotal']
+        info_data = [
+            [Paragraph('CLIENTE', style_bold), Paragraph(f': {venta.cliente.nombre_completo}', style_norm),
+             Paragraph('FECHA EMISION', style_bold), Paragraph(f': {venta.fecha_emision.strftime("%d/%m/%Y")}', style_norm)],
+            [Paragraph('RUC / DNI', style_bold), Paragraph(f': {venta.cliente.numero_documento}', style_norm),
+             Paragraph('FECHA VENCIMIENTO', style_bold), Paragraph(f': {venta.fecha_emision.strftime("%d/%m/%Y")}', style_norm)], # Generalmente igual
+            [Paragraph('DIRECCIÓN', style_bold), Paragraph(f': {venta.cliente.direccion or ""}', style_norm),
+             Paragraph('MEDIO DE PAGO', style_bold), Paragraph(': EFECTIVO', style_norm)], # Placeholder por ahora
+            [Paragraph('', style_bold), Paragraph('', style_norm),
+             Paragraph('MONEDA', style_bold), Paragraph(': SOLES', style_norm)],
         ]
         
-        for item in venta.items:
-            productos_data.append([
-                item.producto_nombre,
-                f"{float(item.cantidad):.2f}",
-                f"S/ {float(item.precio_unitario):.2f}",
-                f"S/ {float(item.subtotal):.2f}"
+        info_tab = Table(info_data, colWidths=[30*mm, 80*mm, 40*mm, 40*mm])
+        info_tab.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING', (0,0), (-1,-1), 1),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+        ]))
+        elements.append(info_tab)
+        elements.append(Spacer(1, 15))
+
+        # 3. TABLA DE DETALLES
+        # ----------------------------------------------------------------------
+        
+        detalles_header = [
+            Paragraph('N°', style_header),
+            Paragraph('UNIDAD', style_header),
+            Paragraph('CODIGO', style_header),
+            Paragraph('DESCRIPCION', style_header),
+            Paragraph('CANT.', style_header),
+            Paragraph('P. UNIT.', style_header),
+            Paragraph('P. TOTAL', style_header)
+        ]
+        
+        detalles_data = [detalles_header]
+        
+        for idx, item in enumerate(venta.items, 1):
+            detalles_data.append([
+                Paragraph(str(idx), style_norm),
+                Paragraph('UND', style_norm),
+                Paragraph(item.producto_sku or '', style_norm),
+                Paragraph(item.producto_nombre, style_norm),
+                Paragraph(f"{float(item.cantidad):.2f}", style_right),
+                Paragraph(f"{float(item.precio_unitario):.2f}", style_right),
+                Paragraph(f"{float(item.subtotal):.2f}", style_right)
             ])
-        
-        productos_table = Table(productos_data, colWidths=[3*inch, 1*inch, 1*inch, 1*inch])
-        productos_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')]),
+
+        # Rellenar filas vacías para mantener estructura visual (opcional)
+        while len(detalles_data) < 7:
+             detalles_data.append(['','','','','','',''])
+
+        detalles_tab = Table(detalles_data, colWidths=[10*mm, 15*mm, 15*mm, 90*mm, 15*mm, 22.5*mm, 22.5*mm])
+        detalles_tab.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.black),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('LINEAFTER', (0,0), (-2,-1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0,0), (-1,0), 2*mm),
+            ('TOPPADDING', (0,0), (-1,0), 2*mm),
         ]))
-        elements.append(productos_table)
-        elements.append(Spacer(1, 0.2*inch))
+        elements.append(detalles_tab)
+
+        # 4. TOTALES Y SON:
+        # ----------------------------------------------------------------------
         
-        # Total
-        total_data = [
-            ['', '', 'TOTAL:', f"S/ {float(venta.total):.2f}"]
+        # Son: [Letras]
+        monto_letras = number_to_words_es(float(venta.total))
+        son_tab = Table([[Paragraph(f'SON : {monto_letras}', style_bold)]], colWidths=[190*mm])
+        son_tab.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ]))
+        elements.append(son_tab)
+
+        # Cálculo de impuestos (asumiendo gravado 18% incluido para boleta)
+        val_total = float(venta.total)
+        val_subtotal = round(val_total / 1.18, 2)
+        val_igv = round(val_total - val_subtotal, 2)
+
+        totals_data = [
+            [Paragraph('GRAVADO', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_subtotal:.2f}', style_right)],
+            [Paragraph('I.G.V 18%', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_igv:.2f}', style_right)],
+            [Paragraph('TOTAL:', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_total:.2f}', style_right)],
         ]
         
-        total_table = Table(total_data, colWidths=[3*inch, 1*inch, 1*inch, 1*inch])
-        total_table.setStyle(TableStyle([
-            ('FONTNAME', (2, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (2, 0), (-1, 0), 12),
-            ('ALIGN', (2, 0), (-1, 0), 'CENTER'),
-            ('BACKGROUND', (2, 0), (-1, 0), colors.HexColor('#e0e7ff')),
-            ('BOX', (2, 0), (-1, 0), 2, colors.black),
-            ('TOPPADDING', (2, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (2, 0), (-1, 0), 8),
+        totals_tab = Table(totals_data, colWidths=[130*mm, 15*mm, 45*mm])
+        totals_tab.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('RIGHTPADDING', (2,0), (2,-1), 5*mm),
+            ('LINEABOVE', (2,2), (2,2), 1, colors.black),
         ]))
-        elements.append(total_table)
-        elements.append(Spacer(1, 0.5*inch))
         
-        # Pie de página
-        footer_style = ParagraphStyle(
-            'Footer',
-            parent=styles['Normal'],
-            alignment=TA_CENTER,
-            fontSize=8,
-            textColor=colors.gray
-        )
+        # Envolver totales en una tabla con bordes laterales si se quiere match exacto
+        wrapper_totals_tab = Table([[totals_tab]], colWidths=[190*mm])
+        wrapper_totals_tab.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 2*mm),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2*mm),
+        ]))
+        elements.append(wrapper_totals_tab)
+        elements.append(Spacer(1, 10))
+
+        # 5. FOOTER (QR, Disclaimer, Usuario)
+        # ----------------------------------------------------------------------
         
-        elements.append(Paragraph('Este es un comprobante de pago electrónico', footer_style))
-        elements.append(Paragraph(f'Representación impresa - {venta.estado}', footer_style))
+        # Generar QR dinámico
+        # Formato SUNAT: RUC|TipoDoc|Serie|Correlativo|IGV|Total|Fecha|TipoDocCliente|NumDocCliente|Hash|
+        qr_content = f"{empresa_ruc}|03|{venta.serie}|{venta.correlativo}|{val_igv:.2f}|{val_total:.2f}|{venta.fecha_emision.strftime('%Y-%m-%d')}|{venta.cliente.tipo_documento}|{venta.cliente.numero_documento}|{venta.hash_cpe or ''}|"
+        qr_code = qr.QrCodeWidget(qr_content)
+        qr_code.barWidth = 35*mm
+        qr_code.barHeight = 35*mm
+        qr_drawing = Drawing(35*mm, 35*mm)
+        qr_drawing.add(qr_code)
+
+        vendedor_nombre = venta.vendedor.nombre if venta.vendedor else "SISTEMA"
+        fecha_hora = datetime.now().strftime("%d/%m/%Y %I:%M %p").replace("AM", "a.m.").replace("PM", "p.m.")
         
-        # Generar el PDF
+        footer_info = [
+            [Paragraph(f'<b>USUARIO {vendedor_nombre.upper()}</b> - {fecha_hora}', style_norm)],
+            [Paragraph('<b>RESPUESTA SUNAT</b>', style_bold)],
+            [Paragraph('Autorizado mediante resolución N° 034-005-0010431/SUNAT<br/>Representación impresa de la BOLETA ELECTRONICA<br/>generada desde el sistema facturador SUNAT. Puede verificarla utilizando su clave SOL', style_small)],
+        ]
+        
+        footer_info_tab = Table(footer_info, colWidths=[150*mm])
+        footer_info_tab.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        
+        footer_main_tab = Table([[footer_info_tab, qr_drawing]], colWidths=[150*mm, 40*mm])
+        footer_main_tab.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        elements.append(footer_main_tab)
+
+        # Construir PDF
         doc.build(elements)
         return True
         
     except Exception as e:
         print(f"Error al generar PDF: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False

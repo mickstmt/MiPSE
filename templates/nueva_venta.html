@@ -1,245 +1,1044 @@
 {% extends "base.html" %}
 
-{% block title %}Nueva Venta{% endblock %}
+{% block title %}POS MiPSE - Nueva Venta{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* POS Layout */
+    .pos-container {
+        display: flex;
+        gap: 20px;
+        height: calc(100vh - 120px);
+        width: 100%;
+    }
+
+    .pos-catalog {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow-y: auto;
+        transition: all 0.3s ease;
+    }
+
+    .pos-cart {
+        width: 450px;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+    }
+
+    /* Rediseño de Grid y Tarjetas */
+    .custom-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 24px;
+        padding: 20px 0;
+    }
+
+    .product-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-align: center;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .product-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        border-color: var(--primary-color);
+    }
+
+    .product-img-wrapper {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 16px;
+        height: 160px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    [data-theme="dark"] .product-img-wrapper {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .product-img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+
+    .product-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 8px;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        height: 2.8em;
+    }
+
+    .product-price {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #10b981;
+        margin-bottom: 4px;
+    }
+
+    .product-sku {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-family: monospace;
+    }
+
+    .variation-badge {
+        background: #e0f2fe;
+        color: #0369a1;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        display: inline-block;
+        margin-top: 10px;
+    }
+
+    [data-theme="dark"] .variation-badge {
+        background: #0c4a6e;
+        color: #7dd3fc;
+    }
+
+    /* Select2 Customization */
+    .select2-container--bootstrap-5 .select2-selection {
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        height: auto;
+        border-color: var(--border-color);
+        background-color: var(--bg-card);
+        color: var(--text-main);
+        font-size: 1.1rem;
+    }
+
+    .select2-search__field {
+        background-color: var(--bg-card) !important;
+        color: var(--text-main) !important;
+    }
+
+    /* Search Group */
+    .search-group {
+        border-color: var(--border-color) !important;
+        border-radius: 12px !important;
+    }
+
+    .search-group input {
+        padding: 0.75rem 1rem !important;
+        font-size: 1.1rem;
+    }
+
+    .search-group input:focus {
+        box-shadow: none;
+    }
+
+    /* Cart Styles */
+    .cart-items {
+        flex: 1;
+        overflow-y: auto;
+        margin: 10px 0;
+    }
+
+    .cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .cart-item-info {
+        flex: 1;
+    }
+
+    .cart-item-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .cart-item-price-input {
+        width: 65px;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-size: 0.8rem;
+        text-align: right;
+    }
+
+    .cart-item-qty {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 10px;
+    }
+
+    .qty-btn {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 1px solid #ddd;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+
+    .qty-val {
+        width: 25px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .cart-total {
+        border-top: 2px solid #eee;
+        padding-top: 15px;
+        font-size: 1.5rem;
+        font-weight: 800;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .badge-qty {
+        font-size: 0.7rem;
+        background: #dee2e6;
+        color: #495057;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+
+    /* Shortcuts Footer */
+    .shortcuts-footer {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        padding: 10px;
+        background: #fdfdfd;
+        border-top: 1px solid #f0f0f0;
+        font-size: 0.75rem;
+        color: #888;
+    }
+
+    .kbd-key {
+        background: #eee;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-weight: bold;
+        color: #333;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-plus-circle"></i> Nueva Venta</h2>
-    <a href="{{ url_for('ventas_list') }}" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Volver
-    </a>
-</div>
-
-<form method="POST" id="formVenta">
-    <div class="row">
-        <!-- Datos del Cliente -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Datos del Cliente</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Tipo de Documento</label>
-                        <select class="form-select" id="tipo_documento">
-                            <option value="DNI">DNI</option>
-                            <option value="RUC">RUC</option>
+<div class="pos-container">
+    <div class="pos-catalog">
+        <div class="p-4">
+            <div class="row g-4 align-items-start">
+                <!-- Selector de Categorías -->
+                <div class="col-md-4">
+                    <label class="form-label fw-bold h5 mb-3">Categorías</label>
+                    <div id="category-selector-wrapper">
+                        <select id="select-categoria" class="form-select select2-categories"
+                            data-placeholder="Selecciona una categoría...">
+                            <option value=""></option>
+                            <option value="0">Todas las categorías</option>
                         </select>
                     </div>
+                    <div id="subcategory-context" class="small text-muted mt-2">
+                        Selecciona una categoría para ver productos
+                    </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Número de Documento</label>
+                <!-- Buscador de Productos -->
+                <div class="col-md-8">
+                    <label class="form-label fw-bold h5 mb-3">Productos</label>
+                    <div class="input-group search-group shadow-sm border rounded-3 overflow-hidden">
+                        <span class="input-group-text bg-white border-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control border-0 py-2" id="product-filter-search"
+                            placeholder="Buscar por nombre o SKU..." autofocus>
+                    </div>
+                    <div id="product-search-context" class="small text-muted mt-2">
+                        Selecciona una categoría para ver productos
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4 opacity-10">
+
+            <!-- Grid de Productos Rediseñado -->
+            <div id="empty-state" class="text-center py-5">
+                <div class="mb-4">
+                    <i class="bi bi-box-seam display-1 text-muted opacity-25"></i>
+                </div>
+                <h5 class="text-muted">Selecciona una categoría</h5>
+            </div>
+
+            <div class="products-grid custom-grid d-none" id="products-grid">
+                <!-- Los productos se cargarán aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel (Cart) -->
+    <div class="pos-cart">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-receipt"></i> Venta</h5>
+            <button class="btn btn-sm btn-outline-danger" onclick="clearCart()" title="Limpiar">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+
+        <!-- Customer Section -->
+        <div class="card mb-3 p-2 bg-light border-0">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small fw-bold text-muted">CLIENTE</span>
+                <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="modal"
+                    data-bs-target="#modalCliente">
+                    <i class="bi bi-search"></i> Buscar (F3)
+                </button>
+            </div>
+            <div id="selected-customer-display">
+                <span class="text-danger small"><i class="bi bi-exclamation-triangle"></i>Requerido</span>
+            </div>
+        </div>
+
+        <!-- Cart Items -->
+        <div class="cart-items" id="cart-items-container">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-cart" style="font-size: 2rem;"></i>
+                <p class="mt-2">Vacío</p>
+            </div>
+        </div>
+
+        <!-- Totals & Actions -->
+        <div class="mt-auto">
+            <div class="cart-total mb-3">
+                <span>TOTAL</span>
+                <span class="text-primary">S/ <span id="cart-total-val">0.00</span></span>
+            </div>
+
+            <form id="formFinalizarVenta" method="POST">
+                <input type="hidden" name="cliente_id" id="hidden_cliente_id">
+                <div id="hidden-items-container"></div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-danger">N° ORDEN *</label>
+                    <input type="text" class="form-control form-control-sm" name="numero_orden" id="numero_orden"
+                        placeholder="Requerido" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" id="btnFinalizar" disabled>
+                    <span class="spinner-border spinner-border-sm d-none" id="spinnerFinalizar"></span>
+                    <i class="bi bi-check-circle-fill me-1" id="iconFinalizar"></i> FINALIZAR (F4)
+                </button>
+            </form>
+        </div>
+
+        <!-- Shortcuts Info -->
+        <div class="shortcuts-footer mt-3">
+            <span><span class="kbd-key">F2</span> Buscar</span>
+            <span><span class="kbd-key">F3</span> Cliente</span>
+            <span><span class="kbd-key">F4</span> Cobrar</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cliente -->
+<div class="modal fade" id="modalCliente" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header border-0 bg-primary text-white p-4"
+                style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                <div class="d-flex align-items-center">
+                    <div class="bg-white bg-opacity-25 rounded-circle p-2 me-3"
+                        style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-person-plus-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Buscar Cliente</h5>
+                        <p class="small opacity-75 mb-0">Ingrese DNI o Carnet para continuar</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-5">
+                        <label class="small fw-bold text-muted mb-1">DOCUMENTO</label>
+                        <select class="form-select border-2" id="tipo_documento"
+                            style="border-radius: 12px; height: 50px;">
+                            <option value="DNI">DNI (Identidad)</option>
+                            <option value="CE">C.E. (Extranjería)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-7">
+                        <label class="small fw-bold text-muted mb-1">NÚMERO</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="numero_documento" 
-                                   placeholder="Ingrese DNI o RUC" maxlength="11" required>
-                            <button class="btn btn-primary" type="button" id="btnBuscar">
-                                <i class="bi bi-search"></i> Buscar
+                            <input type="text" class="form-control border-2" id="numero_documento"
+                                placeholder="Número..."
+                                style="border-radius: 12px 0 0 12px; height: 50px; font-weight: 600;">
+                            <button class="btn btn-primary px-4" type="button" id="btnBuscarCliente"
+                                style="border-radius: 0 12px 12px 0;">
+                                <span class="spinner-border spinner-border-sm d-none" id="spinnerCliente"></span>
+                                <i class="bi bi-search fs-5" id="iconSearchCliente"></i>
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    <div id="datosCliente" style="display: none;">
-                        <input type="hidden" id="cliente_id" name="cliente_id">
-                        <div class="alert alert-success">
-                            <strong><i class="bi bi-person-check"></i> Cliente:</strong>
-                            <p class="mb-0" id="nombreCliente"></p>
+                <div id="resultadoBusqueda"></div>
+
+                <!-- Formulario de Entrada Manual (Premium Card) -->
+                <div id="formManualCliente" class="mt-4 d-none">
+                    <div class="card border-0 shadow-sm" style="border-radius: 16px; background: #f8fafc;">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-warning bg-opacity-10 text-warning rounded-circle p-2 me-2">
+                                    <i class="bi bi-pencil-square"></i>
+                                </div>
+                                <h6 class="fw-bold mb-0">Registro Manual</h6>
+                            </div>
+                            <div class="mb-3">
+                                <label class="small fw-bold text-muted mb-1">NOMBRE O RAZÓN SOCIAL</label>
+                                <input type="text" class="form-control border-0 shadow-sm" id="manual_nombre"
+                                    placeholder="Ej: Juan Perez" style="border-radius: 10px; height: 45px;">
+                            </div>
+                            <div class="mb-4">
+                                <label class="small fw-bold text-muted mb-1">DIRECCIÓN (OPCIONAL)</label>
+                                <input type="text" class="form-control border-0 shadow-sm" id="manual_direccion"
+                                    placeholder="Ej: Av. Central 123" style="border-radius: 10px; height: 45px;">
+                            </div>
+                            <button class="btn btn-success btn-lg w-100 fw-bold shadow-sm" id="btnGuardarManual"
+                                style="border-radius: 12px;">
+                                <i class="bi bi-check2-circle me-1"></i> REGISTRAR Y SELECCIONAR
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Datos de la Venta -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Datos de la Venta</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Serie</label>
-                        <input type="text" class="form-control" value="BB001" readonly>
+    </div>
+</div>
+<!-- Modal Variaciones -->
+<div class="modal fade" id="modalVariaciones" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="variacion-producto-nombre">Producto con Variaciones</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 bg-light">
+                <div class="row g-0">
+                    <!-- Left: Preview -->
+                    <div class="col-md-4 bg-white p-4 border-end">
+                        <div class="text-center">
+                            <div class="variation-preview-img-wrapper mb-3">
+                                <img src="" id="variation-preview-img" class="img-fluid rounded shadow-sm">
+                            </div>
+                            <h6 id="variation-preview-sku" class="text-muted small mb-1">SKU: N/A</h6>
+                            <h4 id="variation-preview-price" class="text-primary fw-bold">S/ 0.00</h4>
+                            <div id="variation-selection-summary" class="small text-muted mt-2">
+                                Elija las opciones...
+                            </div>
+                        </div>
                     </div>
+                    <!-- Right: Attributes -->
+                    <div class="col-md-8 p-4">
+                        <div id="attributes-groups-container">
+                            <!-- Grupos de atributos dinámicos -->
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">N° de Orden (Opcional)</label>
-                        <input type="text" class="form-control" name="numero_orden" 
-                               placeholder="Ej: 012345678">
-                        <small class="text-muted">Campo opcional para control interno</small>
+                        <div class="mt-4 pt-3 border-top d-grid">
+                            <button id="btn-add-variation-to-cart" class="btn btn-primary btn-lg shadow-sm" disabled>
+                                <i class="bi bi-cart-plus me-2"></i> AGREGAR AL CARRITO
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Productos -->
-    <div class="card mt-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Productos</h5>
-            <button type="button" class="btn btn-success btn-sm" id="btnAgregarItem">
-                <i class="bi bi-plus"></i> Agregar Producto
-            </button>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table" id="tablaProductos">
-                    <thead>
-                        <tr>
-                            <th style="width: 40%;">Producto</th>
-                            <th style="width: 15%;">Cantidad</th>
-                            <th style="width: 20%;">Precio Unit.</th>
-                            <th style="width: 20%;">Subtotal</th>
-                            <th style="width: 5%;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="itemsContainer">
-                        <!-- Items se agregan dinámicamente -->
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                            <td><strong>S/ <span id="totalVenta">0.00</span></strong></td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-    </div>
+<style>
+    .attribute-group {
+        margin-bottom: 20px;
+    }
 
-    <div class="text-end mt-3">
-        <button type="submit" class="btn btn-primary btn-lg" id="btnGuardar" disabled>
-            <i class="bi bi-save"></i> Guardar Venta
-        </button>
-    </div>
-</form>
+    .attribute-title {
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .attribute-values {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .attribute-chip {
+        cursor: pointer;
+        padding: 8px 15px;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 80px;
+        justify-content: center;
+    }
+
+    .attribute-chip:hover {
+        border-color: #3498db;
+        background: #f8f9fa;
+    }
+
+    .attribute-chip.selected {
+        border-color: #3498db;
+        background: #3498db;
+        color: white;
+    }
+
+    .attribute-chip.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background: #e9ecef;
+    }
+
+    .variation-preview-img-wrapper {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 10px;
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    #variation-preview-img {
+        max-height: 100%;
+        object-fit: contain;
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-let itemCount = 0;
+    let cart = [];
+    let selectedCategoryId = 0;
 
-// Buscar cliente por DNI/RUC
-document.getElementById('btnBuscar').addEventListener('click', function() {
-    const tipo = document.getElementById('tipo_documento').value;
-    const numero = document.getElementById('numero_documento').value;
-    
-    if (!numero) {
-        alert('Ingrese el número de documento');
-        return;
-    }
-    
-    if (tipo === 'DNI' && numero.length !== 8) {
-        alert('El DNI debe tener 8 dígitos');
-        return;
-    }
-    
-    if (tipo === 'RUC' && numero.length !== 11) {
-        alert('El RUC debe tener 11 dígitos');
-        return;
-    }
-    
-    this.disabled = true;
-    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Buscando...';
-    
-    fetch(`/api/buscar-cliente/${tipo}/${numero}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('cliente_id').value = data.cliente.id;
-                document.getElementById('nombreCliente').textContent = data.cliente.nombre_completo;
-                document.getElementById('datosCliente').style.display = 'block';
-                verificarFormulario();
-            } else {
-                alert('No se encontró información del cliente');
-            }
-        })
-        .catch(error => {
-            alert('Error al buscar cliente: ' + error);
-        })
-        .finally(() => {
-            this.disabled = false;
-            this.innerHTML = '<i class="bi bi-search"></i> Buscar';
+    $(document).ready(function () {
+        // Inicializar Select2
+        $('.select2-categories').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('#category-selector-wrapper')
         });
-});
 
-// Buscar al presionar Enter
-document.getElementById('numero_documento').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        document.getElementById('btnBuscar').click();
-    }
-});
+        loadCategories();
 
-// Agregar item
-document.getElementById('btnAgregarItem').addEventListener('click', function() {
-    itemCount++;
-    const html = `
-        <tr data-item="${itemCount}">
-            <td>
-                <input type="text" class="form-control" name="producto_nombre[]" 
-                       placeholder="Nombre del producto" required>
-            </td>
-            <td>
-                <input type="number" class="form-control item-cantidad" name="cantidad[]" 
-                       min="0.01" step="0.01" value="1" required>
-            </td>
-            <td>
-                <input type="number" class="form-control item-precio" name="precio_unitario[]" 
-                       min="0.01" step="0.01" placeholder="0.00" required>
-            </td>
-            <td>
-                <input type="text" class="form-control item-subtotal" readonly value="0.00">
-            </td>
-            <td>
-                <button type="button" class="btn btn-danger btn-sm btn-eliminar">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </td>
-        </tr>
-    `;
-    document.getElementById('itemsContainer').insertAdjacentHTML('beforeend', html);
-    verificarFormulario();
-});
+        // Cambio de categoría
+        $('#select-categoria').on('change', function () {
+            const catId = $(this).val();
+            const catName = $(this).find('option:selected').text();
 
-// Calcular subtotales
-document.addEventListener('input', function(e) {
-    if (e.target.classList.contains('item-cantidad') || e.target.classList.contains('item-precio')) {
-        const row = e.target.closest('tr');
-        const cantidad = parseFloat(row.querySelector('.item-cantidad').value) || 0;
-        const precio = parseFloat(row.querySelector('.item-precio').value) || 0;
-        const subtotal = cantidad * precio;
-        row.querySelector('.item-subtotal').value = subtotal.toFixed(2);
-        calcularTotal();
-    }
-});
+            if (catId === "") {
+                $('#empty-state').removeClass('d-none');
+                $('#products-grid').addClass('d-none');
+                $('#subcategory-context').text('Selecciona una categoría para ver productos');
+                $('#product-search-context').text('Selecciona una categoría');
+            } else {
+                $('#empty-state').addClass('d-none');
+                $('#products-grid').removeClass('d-none');
+                $('#subcategory-context').text('Subcategorías de ' + catName);
+                $('#product-search-context').text('Buscando en: ' + catName);
+                loadProducts(catId);
+            }
+        });
 
-// Eliminar item
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.btn-eliminar')) {
-        e.target.closest('tr').remove();
-        calcularTotal();
-        verificarFormulario();
-    }
-});
+        // Auto search focus and events
+        $('#product-filter-search').on('input', function () {
+            const query = $(this).val().trim();
+            const selectedCat = $('#select-categoria').val();
 
-// Calcular total
-function calcularTotal() {
-    let total = 0;
-    document.querySelectorAll('.item-subtotal').forEach(input => {
-        total += parseFloat(input.value) || 0;
+            if (query.length >= 2) {
+                $('#empty-state').addClass('d-none');
+                $('#products-grid').removeClass('d-none');
+                searchProducts(query, selectedCat);
+            } else if (query.length === 0 && selectedCat !== "") {
+                loadProducts(selectedCat);
+            } else if (query.length === 0 && selectedCat === "") {
+                $('#empty-state').removeClass('d-none');
+                $('#products-grid').addClass('d-none');
+            }
+        });
+
+        // Keyboard Shortcuts
+        $(document).on('keydown', function (e) {
+            if (e.key === 'F2') { e.preventDefault(); $('#product-filter-search').focus().select(); }
+            if (e.key === 'F3') { e.preventDefault(); $('#modalCliente').modal('show'); setTimeout(() => $('#numero_documento').focus(), 500); }
+            if (e.key === 'F4') { e.preventDefault(); if (!$('#btnFinalizar').prop('disabled')) $('#formFinalizarVenta').submit(); }
+        });
+
+        $('#numero_documento').keypress(function (e) { if (e.which == 13) { e.preventDefault(); $('#btnBuscarCliente').click(); } });
     });
-    document.getElementById('totalVenta').textContent = total.toFixed(2);
-}
 
-// Verificar si el formulario está completo
-function verificarFormulario() {
-    const clienteId = document.getElementById('cliente_id').value;
-    const items = document.querySelectorAll('#itemsContainer tr').length;
-    document.getElementById('btnGuardar').disabled = !(clienteId && items > 0);
-}
+    function loadCategories() {
+        $.get('/api/get-categories', response => {
+            if (response.success) {
+                const select = $('#select-categoria');
+                response.categories.forEach(cat => {
+                    const option = new Option(`${cat.name} (${cat.product_count} productos)`, cat.id, false, false);
+                    select.append(option);
 
-// Agregar primer item automáticamente
-document.getElementById('btnAgregarItem').click();
+                    // Añadir subcategorías si existen
+                    if (cat.children && cat.children.length > 0) {
+                        cat.children.forEach(sub => {
+                            const subOpt = new Option(`-- ${sub.name} (${sub.product_count})`, sub.id, false, false);
+                            select.append(subOpt);
+                        });
+                    }
+                });
+                select.trigger('change');
+            }
+        });
+    }
+
+    function loadProducts(catId) {
+        selectedCategoryId = catId;
+        $('#products-grid').html('<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>');
+        $.get(`/api/get-products-by-category/${catId}`, r => { if (r.success) renderProducts(r.products); });
+    }
+
+    function searchProducts(query, catId) {
+        const container = $('#products-grid');
+        // Mostrar spinner sutil si no hay nada o limpiar
+        container.html('<div class="col-12 text-center py-5"><div class="spinner-border text-primary spinner-border-sm"></div> Buscando...</div>');
+
+        let url = `/api/search-products?q=${encodeURIComponent(query)}`;
+        if (catId && catId !== "0") url += `&category_id=${catId}`;
+
+        $.ajax({
+            url: url,
+            method: 'GET',
+            success: r => { if (r.success) renderProducts(r.products); },
+            error: () => {
+                container.html('<div class="col-12 text-center py-5 text-danger"><i class="bi bi-exclamation-triangle"></i> Error al buscar productos</div>');
+            }
+        });
+    }
+
+    // --- Lógica de Clientes ---
+    $('#btnBuscarCliente').on('click', function () {
+        const tipo = $('#tipo_documento').val();
+        const numero = $('#numero_documento').val().trim();
+
+        if (!numero) {
+            showToast('Atención', 'Ingrese un número de documento', 'warning');
+            return;
+        }
+
+        $('#resultadoBusqueda').html('');
+        $('#formManualCliente').addClass('d-none');
+        $('#btnBuscarCliente').prop('disabled', true);
+        $('#spinnerCliente').removeClass('d-none');
+        $('#iconSearchCliente').addClass('d-none');
+
+        console.log(` [JS-BUSCAR] Iniciando AJAX para ${tipo}: ${numero}`);
+        $.ajax({
+            url: `/api/buscar-cliente/${tipo}/${numero}`,
+            method: 'GET',
+            timeout: 6000, // Timeout de 6 segundos en el cliente
+            success: function (r) {
+                console.log(" [JS-BUSCAR] Success:", r);
+                if (r.success) {
+                    seleccionarCliente(r.cliente);
+                    $('#modalCliente').modal('hide');
+                    showToast('Cliente encontrado', r.cliente.nombre_completo, 'success');
+                }
+            },
+            error: function (xhr, status, err) {
+                console.error(` [JS-BUSCAR] Error. Status: ${status}, Error: ${err}`);
+                const r = xhr.responseJSON;
+                if (r && r.allow_manual) {
+                    showToast('No encontrado', r.message, 'warning');
+                    $('#formManualCliente').removeClass('d-none');
+                    $('#manual_nombre').focus();
+                } else {
+                    showToast('Error', r ? r.message : 'Error en la búsqueda o servicio no disponible', 'error');
+                }
+            },
+            complete: function () {
+                console.log(" [JS-BUSCAR] AJAX completado (re-habilitando UI)");
+                $('#btnBuscarCliente').prop('disabled', false);
+                $('#spinnerCliente').addClass('d-none');
+                $('#iconSearchCliente').removeClass('d-none');
+            }
+        });
+    });
+
+    $('#btnGuardarManual').on('click', function () {
+        const tipo = $('#tipo_documento').val();
+        const numero = $('#numero_documento').val().trim();
+        const nombre = $('#manual_nombre').val().trim();
+        const direccion = $('#manual_direccion').val().trim();
+
+        if (!nombre) {
+            showToast('Faltan datos', 'El nombre es obligatorio', 'warning');
+            return;
+        }
+
+        $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Guardando...');
+
+        $.ajax({
+            url: '/api/clientes',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                tipo_documento: tipo,
+                numero_documento: numero,
+                nombre: nombre,
+                direccion: direccion
+            }),
+            success: function (r) {
+                if (r.success) {
+                    seleccionarCliente({
+                        id: r.id,
+                        nombre_completo: r.nombre,
+                        numero_documento: numero,
+                        tipo_documento: tipo
+                    });
+                    $('#modalCliente').modal('hide');
+                    showToast('Registrado', 'Cliente guardado exitosamente', 'success');
+                }
+            },
+            error: function () {
+                showToast('Error', 'No se pudo guardar el cliente', 'error');
+            },
+            complete: () => {
+                $('#btnGuardarManual').prop('disabled', false).html('<i class="bi bi-save me-1"></i> REGISTRAR Y SELECCIONAR');
+            }
+        });
+    });
+
+    function seleccionarCliente(cliente) {
+        console.log(" [JS] Seleccionando cliente:", cliente);
+        $('#hidden_cliente_id').val(cliente.id);
+        $('#selected-customer-display').html(`
+            <div class="d-flex align-items-center">
+                <div class="bg-primary text-white rounded-circle p-2 me-2" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <div>
+                    <div class="fw-bold text-truncate" style="max-width: 200px;">${cliente.nombre_completo}</div>
+                    <div class="small text-muted">${cliente.tipo_documento}: ${cliente.numero_documento}</div>
+                </div>
+            </div>
+        `);
+        checkCanSubmit();
+    }
+
+    function renderProducts(products) {
+        const container = $('#products-grid');
+        if (products.length === 0) {
+            container.html('<div class="col-12 text-center py-5 text-muted">No se encontraron productos</div>');
+            return;
+        }
+
+        let html = '';
+        products.forEach(p => {
+            const img = p.imagen_url || 'https://via.placeholder.com/200?text=SIN+FOTO';
+            const isVariable = p.tipo === 'variable';
+
+            html += `
+            <div class="product-card" onclick="productClicked(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price}, '${p.tipo}', '${p.sku || ''}')">
+                <div class="product-img-wrapper">
+                    <img src="${img}" class="product-img" loading="lazy">
+                </div>
+                <div class="product-name" title="${p.name}">${p.name}</div>
+                <div class="product-price">S/ ${parseFloat(p.price).toFixed(2)}</div>
+                <div class="product-sku">SKU: ${p.sku || 'N/A'}</div>
+                ${isVariable ? '<div class="variation-badge">Tiene Variaciones</div>' : ''}
+            </div>`;
+        });
+        container.html(html);
+    }
+
+    function productClicked(id, name, price, tipo, sku) {
+        if (tipo === 'variable') {
+            showVariationsModal(id, name);
+        } else {
+            addToCart(id, name, price, sku);
+        }
+    }
+
+    let currentVariations = [];
+    let currentSelections = {};
+    let activeProductId = null;
+    let activeProductName = '';
+
+    function showVariationsModal(productId, productName) {
+        activeProductId = productId;
+        activeProductName = productName;
+        currentSelections = {};
+        $('#variacion-producto-nombre').text(productName);
+        $('#attributes-groups-container').html('<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>');
+        $('#btn-add-variation-to-cart').prop('disabled', true);
+        $('#variation-preview-img').attr('src', '');
+        $('#variation-preview-price').text('S/ 0.00');
+        $('#variation-preview-sku').text('SKU: N/A');
+        $('#variation-selection-summary').text('Elija las opciones...');
+        $('#modalVariaciones').modal('show');
+
+        $.get(`/api/get-variations/${productId}`, r => {
+            if (r.success) {
+                currentVariations = r.variations;
+                renderAttributeGroups();
+            } else {
+                $('#attributes-groups-container').html('<div class="text-center text-danger">Error al cargar variaciones</div>');
+            }
+        });
+    }
+
+    function renderAttributeGroups() {
+        const container = $('#attributes-groups-container');
+        if (currentVariations.length === 0) {
+            container.html('<div class="text-center text-muted">No hay variaciones disponibles</div>');
+            return;
+        }
+
+        // Extraer todos los atributos únicos
+        const attributeKeys = Array.from(new Set(currentVariations.flatMap(v => Object.keys(v.atributos))));
+
+        let html = '';
+        attributeKeys.forEach(key => {
+            // Obtener todos los valores posibles para esta llave que son compatibles con las selecciones ACTUALES
+            // (Simplificado: mostrar todos los valores únicos para esta llave en general)
+            const values = Array.from(new Set(currentVariations.map(v => v.atributos[key]))).sort();
+
+            html += `
+            <div class="attribute-group">
+                <span class="attribute-title">${key}</span>
+                <div class="attribute-values">
+                    ${values.map(val => {
+                const isSelected = currentSelections[key] === val;
+                return `<div class="attribute-chip ${isSelected ? 'selected' : ''}" 
+                                     onclick="selectAttributeValue('${key.replace(/'/g, "\\'")}', '${val.replace(/'/g, "\\'")}')">
+                                    ${val}
+                                </div>`;
+            }).join('')}
+                </div>
+            </div>`;
+        });
+        container.html(html);
+        updateVariationPreview();
+    }
+
+    function selectAttributeValue(key, value) {
+        currentSelections[key] = value;
+        renderAttributeGroups();
+    }
+
+    function updateVariationPreview() {
+        // Intentar encontrar una variación que coincida con TODAS las selecciones actuales
+        const match = currentVariations.find(v => {
+            return Object.entries(currentSelections).every(([key, val]) => v.atributos[key] === val);
+        });
+
+        // Verificar si se han seleccionado todos los atributos posibles
+        const allAtts = Array.from(new Set(currentVariations.flatMap(v => Object.keys(v.atributos))));
+        const allSelected = allAtts.every(key => currentSelections[key]);
+
+        if (match && allSelected) {
+            $('#variation-preview-img').attr('src', match.imagen_url || 'https://via.placeholder.com/200?text=SIN+FOTO');
+            $('#variation-preview-price').text(`S/ ${parseFloat(match.price).toFixed(2)}`);
+            $('#variation-preview-sku').text(`SKU: ${match.sku || 'N/A'}`);
+
+            const summary = Object.entries(currentSelections).map(([k, v]) => `${k}: ${v}`).join(', ');
+            $('#variation-selection-summary').html(`<span class="text-success fw-bold"><i class="bi bi-check-circle"></i> ${summary}</span>`);
+
+            $('#btn-add-variation-to-cart')
+                .prop('disabled', false)
+                .off('click')
+                .on('click', () => addVariationToCart(match.id, activeProductName, summary, match.price, match.sku));
+        } else {
+            if (!match && currentVariations.length > 0) {
+                $('#variation-preview-img').attr('src', currentVariations[0].imagen_url || 'https://via.placeholder.com/200?text=SIN+FOTO');
+            }
+            $('#btn-add-variation-to-cart').prop('disabled', true);
+
+            if (Object.keys(currentSelections).length > 0) {
+                const summary = Object.entries(currentSelections).map(([k, v]) => `${k}: ${v}`).join(', ');
+                $('#variation-selection-summary').text(`Seleccionando: ${summary}...`);
+            } else {
+                $('#variation-selection-summary').text('Elija las opciones...');
+            }
+        }
+    }
+
+    function addVariationToCart(vId, prodName, attrText, price, sku) {
+        const fullName = `${prodName} (${attrText})`;
+        const cartId = `v-${vId}`;
+
+        const item = cart.find(i => i.cartId === cartId);
+        if (item) item.qty++;
+        else cart.push({ cartId, id: vId, name: fullName, price, qty: 1, isVariation: true, sku: sku });
+
+        $('#modalVariaciones').modal('hide');
+        renderCart();
+        $('#product-filter-search').focus().select();
+    }
+
+    function addToCart(id, name, price, sku) {
+        const cartId = `p-${id}`;
+        const item = cart.find(i => i.cartId === cartId);
+        if (item) item.qty++;
+        else cart.push({ cartId, id, name, price, qty: 1, isVariation: false, sku: sku });
+        renderCart();
+        $('#product-filter-search').focus().select();
+    }
+
+    function updatePrice(cartId, newPrice) {
+        const item = cart.find(i => i.cartId === cartId);
+        if (item) { item.price = parseFloat(newPrice) || 0; renderCart(); }
+    }
+
+    function updateQty(cartId, delta) {
+        const item = cart.find(i => i.cartId === cartId);
+        if (item) {
+            item.qty += delta;
+            if (item.qty <= 0) cart = cart.filter(i => i.cartId !== cartId);
+            renderCart();
+        }
+    }
+
+    function clearCart() { if (confirm('¿Vaciar venta?')) { cart = []; renderCart(); } }
+
+    function renderCart() {
+        const container = $('#cart-items-container');
+        if (cart.length === 0) {
+            container.html('<div class="text-center py-5 text-muted"><i class="bi bi-cart" style="font-size: 2rem;"></i><p class="mt-2">Vacío</p></div>');
+            $('#cart-total-val').text('0.00');
+            $('#btnFinalizar').prop('disabled', true);
+            return;
+        }
+        let html = ''; let total = 0;
+        cart.forEach(i => {
+            total += i.price * i.qty;
+            html += `
+            <div class="cart-item">
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${i.name}</div>
+                    <div class="d-flex align-items-center mt-1">
+                        <span class="small text-muted me-1">S/</span>
+                        <input type="number" class="cart-item-price-input" value="${parseFloat(i.price).toFixed(2)}" onchange="updatePrice('${i.cartId}', this.value)" step="0.01">
+                    </div>
+                </div>
+                <div class="cart-item-qty">
+                    <div class="qty-btn" onclick="updateQty('${i.cartId}', -1)">-</div>
+                    <div class="qty-val">${i.qty}</div>
+                    <div class="qty-btn" onclick="updateQty('${i.cartId}', 1)">+</div>
+                </div>
+            </div>`;
+        });
+        container.html(html);
+        $('#cart-total-val').text(total.toFixed(2));
+        checkCanSubmit();
+    }
+
+
+    function checkCanSubmit() {
+        const hasItems = cart.length > 0;
+        const hasCustomer = $('#hidden_cliente_id').val() !== '';
+        const hasOrderNumber = $('#numero_orden').val().trim() !== '';
+        $('#btnFinalizar').prop('disabled', !(hasItems && hasCustomer && hasOrderNumber));
+    }
+
+    // Escuchar cambios en el N° de Orden para validar
+    $('#numero_orden').on('input', checkCanSubmit);
+
+    $('#formFinalizarVenta').submit(function (e) {
+        e.preventDefault();
+        const form = this;
+        const total = $('#cart-total-val').text();
+
+        Swal.fire({
+            title: '¿Confirmar venta?',
+            html: `<div class="text-center">
+                    <p class="mb-2">Se generará el comprobante por un total de:</p>
+                    <h3 class="text-primary fw-bold mb-3">S/ ${total}</h3>
+                    <p class="small text-muted"><i class="bi bi-info-circle me-1"></i>Esta acción enviará los datos directamente a SUNAT.</p>
+                   </div>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> SÍ, CONFIRMAR',
+            cancelButtonText: 'CANCELAR',
+            reverseButtons: true,
+            customClass: {
+                popup: 'rounded-4 border-0',
+                confirmButton: 'px-4 py-2 fw-bold',
+                cancelButton: 'px-4 py-2'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const btn = $('#btnFinalizar');
+                const spinner = $('#spinnerFinalizar');
+                const icon = $('#iconFinalizar');
+
+                btn.prop('disabled', true);
+                spinner.removeClass('d-none');
+                icon.addClass('d-none');
+
+                const c = $('#hidden-items-container');
+                c.empty();
+                cart.forEach(i => {
+                    c.append(`<input type="hidden" name="producto_nombre[]" value="${i.name}"><input type="hidden" name="producto_sku[]" value="${i.sku || ''}"><input type="hidden" name="cantidad[]" value="${i.qty}"><input type="hidden" name="precio_unitario[]" value="${i.price}">`);
+                });
+
+                showToast('Procesando', 'Guardando comprobante y enviando a SUNAT...', 'info');
+                form.submit();
+            }
+        });
+    });
 </script>
 {% endblock %}

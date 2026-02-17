@@ -10,10 +10,59 @@
     </a>
 </div>
 
-<!-- Estadísticas -->
+<!-- Monitor de Límite RUS (Semáforo) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="card-title mb-0"><i class="bi bi-graph-up-arrow"></i> Monitor de Cumplimiento RUS</h5>
+                    <span
+                        class="badge {% if total_mes > limite_cat2 %}bg-danger{% elif total_mes > limite_cat1 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                        Mes: {{ now.strftime('%B %Y') if now else 'Actual' }}
+                    </span>
+                </div>
+
+                <div class="d-flex justify-content-between mb-1 small text-muted">
+                    <span>Vendido: <strong>S/ {{ "%.2f"|format(total_mes) }}</strong></span>
+                    <span>Meta Máx (Cat 2): S/ {{ "%.2f"|format(limite_cat2) }}</span>
+                </div>
+
+                {% set pct = (total_mes / limite_cat2) * 100 %}
+                {% if pct > 100 %}{% set pct = 100 %}{% endif %}
+
+                <div class="progress" style="height: 25px; border-radius: 12px; background-color: rgba(0,0,0,0.05);">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated 
+                         {% if total_mes > limite_cat2 %}bg-danger
+                         {% elif total_mes > limite_cat1 %}bg-warning
+                         {% else %}bg-success{% endif %}" role="progressbar" style="width: {{ pct }}%;"
+                        aria-valuenow="{{ total_mes }}" aria-valuemin="0" aria-valuemax="{{ limite_cat2 }}">
+                        {{ "%.1f"|format(pct) }}%
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-2 small">
+                    <div class="text-success">
+                        <i class="bi bi-dot" style="font-size: 1.5rem;"></i> Cat 1 (S/ 5,000)
+                    </div>
+                    <div class="text-warning">
+                        <i class="bi bi-dot" style="font-size: 1.5rem;"></i> Cat 2 (S/ 8,000)
+                    </div>
+                    {% if total_mes > limite_cat1 %}
+                    <div class="text-danger fw-bold">
+                        <i class="bi bi-exclamation-octagon-fill"></i> ¡Cuidado con el límite!
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas Básicas -->
 <div class="row mb-4">
     <div class="col-md-4">
-        <div class="card stat-card">
+        <div class="card stat-card" style="border-left: 4px solid var(--primary-color);">
             <div class="card-body">
                 <h6 class="text-muted">Total Ventas</h6>
                 <h2 class="mb-0">{{ total_ventas }}</h2>
@@ -21,7 +70,7 @@
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card stat-card" style="border-left-color: #f59e0b;">
+        <div class="card stat-card" style="border-left: 4px solid #f59e0b;">
             <div class="card-body">
                 <h6 class="text-muted">Pendientes de Envío</h6>
                 <h2 class="mb-0">{{ ventas_pendientes }}</h2>
@@ -29,7 +78,7 @@
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card stat-card" style="border-left-color: #10b981;">
+        <div class="card stat-card" style="border-left: 4px solid #10b981;">
             <div class="card-body">
                 <h6 class="text-muted">Enviadas a SUNAT</h6>
                 <h2 class="mb-0">{{ ventas_enviadas }}</h2>
@@ -40,10 +89,10 @@
 
 <!-- Últimas Ventas -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header border-bottom border-secondary bg-transparent py-3">
         <h5 class="mb-0">Últimas Ventas</h5>
     </div>
-    <div class="card-body">
+    <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
@@ -53,6 +102,7 @@
                         <th>Total</th>
                         <th>Estado</th>
                         <th>Fecha</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -73,6 +123,12 @@
                             {% endif %}
                         </td>
                         <td>{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>
+                            <a href="{{ url_for('descargar_pdf', venta_id=venta.id) }}"
+                                class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir Comprobante">
+                                <i class="bi bi-printer"></i>
+                            </a>
+                        </td>
                     </tr>
                     {% else %}
                     <tr>

@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 class SchedulerService:
     """Servicio de tareas programadas"""
 
-    def __init__(self, app, db, Venta, SUNATService):
+    def __init__(self, app, db, Venta, ElectronicService):
         self.app = app
         self.db = db
         self.Venta = Venta
-        self.SUNATService = SUNATService
+        self.ElectronicService = ElectronicService
         self.scheduler = BackgroundScheduler()
         self.timezone = pytz.timezone('America/Lima')  # Zona horaria de Perú
 
@@ -46,8 +46,8 @@ class SchedulerService:
 
                 logger.info(f"📋 Ventas pendientes encontradas: {len(ventas_pendientes)}")
 
-                # Inicializar servicio SUNAT
-                sunat_service = self.SUNATService(Config())
+                # Inicializar servicio electrónico (PSE o direct SUNAT)
+                service = self.ElectronicService(Config())
 
                 enviadas = 0
                 errores = 0
@@ -57,7 +57,7 @@ class SchedulerService:
                         logger.info(f"⏳ Procesando venta {venta.numero_completo}...")
 
                         # Procesar venta
-                        resultado = sunat_service.procesar_venta(venta)
+                        resultado = service.procesar_venta(venta)
 
                         if resultado['success']:
                             venta.estado = 'ENVIADO'
@@ -68,7 +68,7 @@ class SchedulerService:
                             logger.info(f"✓ Venta {venta.numero_completo} enviada exitosamente")
                         else:
                             errores += 1
-                            logger.error(f"✗ Error en venta {venta.numero_completo}: {resultado['message']}")
+                            logger.error(f"✗ Error en venta {venta.numero_completo}: {resultado.get('message', 'Error desconocido')}")
 
                     except Exception as e:
                         errores += 1

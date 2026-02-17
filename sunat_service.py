@@ -186,7 +186,17 @@ class SUNATService:
             # Documento del cliente
             party_ident = etree.SubElement(customer_party, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}PartyIdentification")
             id_elem = etree.SubElement(party_ident, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}ID")
-            tipo_doc = "1" if venta.cliente.tipo_documento == "DNI" else "6"  # 1=DNI, 6=RUC
+            
+            # Map tipos de documento a códigos SUNAT (Catálogo 06)
+            # 1 = DNI, 4 = Carnet de Extranjería, 6 = RUC, 7 = Pasaporte, 0 = Sin Documento
+            doc_map = {
+                'DNI': '1',
+                'CE': '4',
+                'RUC': '6',
+                'PASAPORTE': '7'
+            }
+            tipo_doc = doc_map.get(venta.cliente.tipo_documento, '1')
+            
             id_elem.set("schemeAgencyName", "PE:SUNAT")
             id_elem.set("schemeID", tipo_doc)
             id_elem.set("schemeName", "Documento de Identidad")

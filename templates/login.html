@@ -1,82 +1,278 @@
 {% extends "base.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Iniciar Sesión{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        overflow-x: hidden;
+    }
+
+    .login-container {
+        min-height: calc(100vh - 56px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .glass-card {
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 20px;
+        padding: 40px;
+        width: 100%;
+        max-width: 450px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        color: white;
+    }
+
+    .glass-card h2 {
+        font-weight: 700;
+        margin-bottom: 30px;
+        text-align: center;
+        letter-spacing: -0.5px;
+        color: #f8fafc;
+    }
+
+    .form-control {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #f8fafc;
+        border-radius: 12px;
+        padding: 13px 20px;
+    }
+
+    .form-control:focus {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: white;
+        box-shadow: none;
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-glass {
+        background: rgba(59, 130, 246, 0.2);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        color: #60a5fa;
+        border-radius: 12px;
+        padding: 12px;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .btn-glass:hover {
+        background: rgba(59, 130, 246, 0.3);
+        border-color: rgba(59, 130, 246, 0.5);
+        transform: translateY(-2px);
+        color: white;
+        box-shadow: 0 10px 20px rgba(59, 130, 246, 0.1);
+    }
+
+    .btn-glass:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .auth-link {
+        color: rgba(255, 255, 255, 0.6);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.3s;
+    }
+
+    .auth-link:hover {
+        color: #60a5fa;
+    }
+
+    .spinner-border-sm {
+        display: none;
+    }
+
+    .loading .spinner-border-sm {
+        display: inline-block;
+    }
+
+    .loading .btn-text {
+        display: none;
+    }
+
+    /* Modal Styling */
+    .modal-content {
+        background: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
-        <div class="col-md-5">
-            <div class="card">
-                <div class="card-body p-5">
-                    <div class="text-center mb-4">
-                        <h2><i class="bi bi-shop text-primary"></i></h2>
-                        <h3>Izistore Peru</h3>
-                        <p class="text-muted">Sistema de Ventas</p>
-                    </div>
+<div class="login-container">
+    <div class="glass-card animate__animated animate__fadeIn">
+        <div class="text-center mb-4">
+            <div class="display-4 mb-2"><i class="bi bi-shield-lock"></i></div>
+            <h2>MiPSE Auth</h2>
+            <p class="small text-white-50">Ingresa tus credenciales para continuar</p>
+        </div>
 
-                    <form method="POST" action="{{ url_for('login') }}">
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Correo Electrónico</label>
-                            <input type="email" class="form-control" id="email" name="email" 
-                                   placeholder="usuario@izistoreperu.com" required>
-                            <small class="text-muted">Solo usuarios @izistoreperu.com</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 mb-3">
-                            <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
-                        </button>
-                    </form>
-
-                    <hr>
-
-                    <div class="text-center">
-                        <p class="mb-0">¿No tienes cuenta?</p>
-                        <button type="button" class="btn btn-link" data-bs-toggle="modal" data-bs-target="#registroModal">
-                            Registrarse
-                        </button>
-                    </div>
-                </div>
+        <form id="formLogin">
+            <div class="mb-3">
+                <label class="form-label small">Usuario o Correo</label>
+                <input type="text" class="form-control" name="login_identifier" placeholder="Email o Nombre de Usuario"
+                    required>
             </div>
+
+            <div class="mb-4">
+                <label class="form-label small">Contraseña</label>
+                <input type="password" class="form-control" name="password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-glass w-100 mb-4" id="btnLogin">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                <span class="btn-text"><i class="bi bi-box-arrow-in-right"></i> Acceder</span>
+            </button>
+        </form>
+
+        <div class="text-center">
+            <span class="small text-white-50">¿No tienes cuenta?</span><br>
+            <a href="#" class="auth-link fw-bold" data-bs-toggle="modal" data-bs-target="#registroModal">
+                Crea una aquí
+            </a>
         </div>
     </div>
 </div>
 
 <!-- Modal Registro -->
 <div class="modal fade" id="registroModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Registrar Usuario</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Unirse a la plataforma</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('registro') }}">
-                <div class="modal-body">
+            <form id="formRegistro">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label for="nombre" class="form-label">Nombre Completo</label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        <label class="form-label small">Nombre Completo</label>
+                        <input type="text" class="form-control" name="nombre" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="email_registro" class="form-label">Correo Electrónico</label>
-                        <input type="email" class="form-control" id="email_registro" name="email" 
-                               placeholder="usuario@izistoreperu.com" required>
-                        <small class="text-muted">Debe ser @izistoreperu.com</small>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small">Usuario</label>
+                            <input type="text" class="form-control" name="username" placeholder="johndoe" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small">Correo Institucional</label>
+                            <input type="email" class="form-control" name="email" placeholder="user@izistoreperu.com"
+                                required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="password_registro" class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="password_registro" name="password" required>
+                    <div class="mb-1">
+                        <label class="form-label small">Nueva Contraseña</label>
+                        <input type="password" class="form-control" name="password" required>
                     </div>
+                    <p class="small text-white-50 mb-0 mt-2">
+                        <i class="bi bi-info-circle"></i> Solo dominios @izistoreperu.com son admitidos.
+                    </p>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Registrar</button>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-link text-white-50" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-glass px-4" id="btnRegistro">
+                        <span class="spinner-border spinner-border-sm"></span>
+                        <span class="btn-text">Registrarme</span>
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        background: '#1e293b',
+        color: '#f8fafc',
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    $('#formLogin').on('submit', function (e) {
+        e.preventDefault();
+        const btn = $('#btnLogin');
+        btn.addClass('loading').prop('disabled', true);
+
+        $.ajax({
+            url: "{{ url_for('login') }}",
+            method: "POST",
+            data: $(this).serialize(),
+            success: function (r) {
+                if (r.success) {
+                    Toast.fire({ icon: 'success', title: '¡Bienvenido de nuevo!' });
+                    setTimeout(() => window.location.href = r.redirect, 1000);
+                } else {
+                    Toast.fire({ icon: 'error', title: r.message });
+                    btn.removeClass('loading').prop('disabled', false);
+                }
+            },
+            error: () => {
+                Toast.fire({ icon: 'error', title: 'Error de servidor' });
+                btn.removeClass('loading').prop('disabled', false);
+            }
+        });
+    });
+
+    $('#formRegistro').on('submit', function (e) {
+        e.preventDefault();
+        const btn = $('#btnRegistro');
+        btn.addClass('loading').prop('disabled', true);
+
+        $.ajax({
+            url: "{{ url_for('registro') }}",
+            method: "POST",
+            data: $(this).serialize(),
+            success: function (r) {
+                if (r.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Cuenta creada!',
+                        text: r.message,
+                        confirmButtonText: 'Genial'
+                    });
+                    $('#registroModal').modal('hide');
+                } else {
+                    Toast.fire({ icon: 'error', title: r.message });
+                }
+            },
+            complete: () => btn.removeClass('loading').prop('disabled', false)
+        });
+    });
+</script>
 {% endblock %}

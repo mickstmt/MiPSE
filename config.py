@@ -18,6 +18,17 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    # WooCommerce (MySQL) - Lectura de productos
+    WOO_DB_USER = os.getenv('WOO_DB_USER', 'root')
+    WOO_DB_PASSWORD = os.getenv('WOO_DB_PASSWORD', '')
+    WOO_DB_HOST = os.getenv('WOO_DB_HOST', 'localhost')
+    WOO_DB_PORT = os.getenv('WOO_DB_PORT', '3306')
+    WOO_DB_NAME = os.getenv('WOO_DB_NAME', 'wordpress')
+    
+    # URI de conexión para WooCommerce (MySQL)
+    # Se usará para consultas directas vía SQLAlchemy o conexión manual
+    WOO_DATABASE_URI = f"mysql+pymysql://{WOO_DB_USER}:{WOO_DB_PASSWORD}@{WOO_DB_HOST}:{WOO_DB_PORT}/{WOO_DB_NAME}"
+    
     # APIs Peru
     APISPERU_TOKEN = os.getenv('APISPERU_TOKEN')
     APISPERU_DNI_URL = 'https://dniruc.apisperu.com/api/v1/dni'
@@ -65,6 +76,7 @@ class Config:
     
     # Carpetas
     COMPROBANTES_PATH = 'comprobantes'
+    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
     
     # Horarios de envío automático (24h format)
     HORARIOS_ENVIO = ['12:00', '18:00']

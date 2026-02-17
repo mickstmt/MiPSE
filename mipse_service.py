@@ -97,7 +97,13 @@ class MiPSEService:
                 error_msg = response.text
                 try:
                     error_json = response.json()
-                    error_msg = error_json.get('message') or error_json.get('error') or response.text
+                    error_msg = (
+                        error_json.get('mensaje') or 
+                        error_json.get('message') or 
+                        error_json.get('errores') or 
+                        error_json.get('error') or 
+                        response.text
+                    )
                 except:
                     pass
                 print(f"[MiPSE] Error obteniendo token: {error_msg}")
@@ -257,7 +263,14 @@ class MiPSEService:
                 error_text = response.text
                 try:
                     error_json = response.json()
-                    error_text = error_json.get('message') or error_json.get('error') or response.text
+                    # Extraer el mensaje mas descriptivo
+                    error_text = (
+                        error_json.get('mensaje') or 
+                        error_json.get('message') or 
+                        error_json.get('errores') or 
+                        error_json.get('error') or 
+                        response.text
+                    )
                 except:
                     pass
 
@@ -276,7 +289,7 @@ class MiPSEService:
                 'error': str(e)
             }
 
-    def consultar_comprobante(self, nombre_archivo):
+    def consultar_estado(self, nombre_archivo):
         """
         Consulta el estado de un comprobante/ticket en SUNAT
 
@@ -383,18 +396,47 @@ class MiPSEService:
             resultado = {
                 'success': envio_result.get('success', False),
                 'estado': envio_result.get('estado'),
-                'mensaje': envio_result.get('mensaje'),
+                'message': envio_result.get('mensaje'),
                 'hash': hash_cpe,
+                'external_id': firma_result.get('external_id'),
                 'nombre_archivo': nombre_archivo,
+                'xml_firmado': xml_firmado,
                 'cdr': envio_result.get('cdr')
             }
 
+            # --- MANEJO DE DUPLICADOS ---
+            # Si el envio fallo pero el mensaje indica que ya existe, consultamos el estado
+            if not envio_result.get('success'):
+                error_msg = str(envio_result.get('mensaje', '')).lower()
+                # Lista de frases comunes que indican que el comprobante ya llego a SUNAT
+                duplicado_keywords = [
+                    "registrado previamente", 
+                    "informado anteriormente", 
+                    "ya existe", 
+                    "duplicado",
+                    "cpe ya informado",
+                    "serie y número ya están registrados"
+                ]
+                
+                if any(kw in error_msg for kw in duplicado_keywords):
+                    print(f"[MiPSE] Detectado comprobante ya informado. Consultando estado...")
+                    consulta = self.consultar_estado(nombre_archivo)
+                    
+                    if consulta.get('success'):
+                        print(f"[MiPSE] Consulta exitosa. Recuperando datos del comprobante previo.")
+                        resultado['success'] = True
+                        resultado['estado'] = 200
+                        resultado['message'] = f"Comprobante ya registrado: {consulta.get('mensaje')}"
+                        resultado['cdr'] = consulta.get('cdr')
+                        envio_result['success'] = True
+            # ----------------------------
+
             if envio_result.get('success'):
                 print(f"\n[MiPSE] EXITO - Comprobante enviado correctamente")
-                print(f"[MiPSE] Mensaje: {envio_result.get('mensaje')}")
+                print(f"[MiPSE] Mensaje: {resultado.get('message')}")
             else:
                 print(f"\n[MiPSE] ERROR - {envio_result.get('mensaje')}")
-                resultado['error'] = envio_result.get('error') or envio_result.get('mensaje')
+                resultado['message'] = envio_result.get('error') or envio_result.get('mensaje')
 
             return resultado
 
