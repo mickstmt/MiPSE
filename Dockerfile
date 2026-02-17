@@ -24,8 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el código de la aplicación
 COPY . .
 
-# Crear directorio para comprobantes
-RUN mkdir -p comprobantes
+# Crear directorios para persistencia de comprobantes y archivos SUNAT
+RUN mkdir -p comprobantes xml_generados cdr_recibidos
 
 # Exponer puerto estándar de producción
 EXPOSE 80

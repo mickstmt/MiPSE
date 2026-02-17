@@ -74,6 +74,11 @@ class SUNATService:
         else:
             print(f"🔑 Usando autenticación SOAP con usuario SOL")
 
+        # Asegurar que existan las carpetas necesarias
+        os.makedirs("xml_generados", exist_ok=True)
+        os.makedirs("cdr_recibidos", exist_ok=True)
+        print(f"📁 Directorios xml_generados y cdr_recibidos verificados")
+
     def generar_xml_boleta(self, venta):
         """
         Genera el XML de la boleta según el formato UBL 2.1 de SUNAT
