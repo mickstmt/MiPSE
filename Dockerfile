@@ -35,4 +35,5 @@ ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 
 # Comando para ejecutar la aplicación en el puerto 80
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "4", "--timeout", "120", "app:app"]
+# Reducimos a 2 workers por si el VPS tiene poca RAM
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--timeout", "300", "app:app"]
