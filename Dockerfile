@@ -27,12 +27,12 @@ COPY . .
 # Crear directorio para comprobantes
 RUN mkdir -p comprobantes
 
-# Exponer puerto
-EXPOSE 5000
+# Exponer puerto estándar de producción
+EXPOSE 80
 
 # Variables de entorno por defecto
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 
-# Comando para ejecutar la aplicación
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "app:app"]
+# Comando para ejecutar la aplicación en el puerto 80
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "4", "--timeout", "120", "app:app"]
