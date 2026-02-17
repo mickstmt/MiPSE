@@ -46,18 +46,23 @@ def init_scheduler_production():
     try:
         # Solo en Linux/Unix (Producción)
         import fcntl
-        f = open('.scheduler.lock', 'wb')
+        # Usar una ruta absoluta para el lock para evitar problemas de contexto
+        lock_file = os.path.join(os.getcwd(), '.scheduler.lock')
+        f = open(lock_file, 'wb')
         try:
+            # LOCK_NB significa "No Bloqueante". Si otro worker lo tiene, lanzará OSError
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             iniciar_scheduler()
             print("🚀 Scheduler iniciado en este worker")
-        except str as e:
-            # Ya está bloqueado por otro worker
+        except OSError:
+            # El lock ya lo tiene otro worker, no hacemos nada
             pass
     except ImportError:
         # En Windows (Desarrollo)
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') == '1':
             iniciar_scheduler()
+    except Exception as e:
+        print(f"⚠️ Error al inicializar scheduler: {e}")
 
 @login_manager.user_loader
 def load_user(user_id):
