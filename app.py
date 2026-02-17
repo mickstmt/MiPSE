@@ -44,27 +44,37 @@ atexit.register(detener_scheduler)
 # Inicializar scheduler solo en el proceso principal o el primer worker
 # En producción (Gunicorn), esto asegura que solo una instancia corra
 def init_scheduler_production():
-    global _lock_file_handle
-    try:
-        # Solo en Linux/Unix (Producción)
-        import fcntl
-        lock_file = os.path.join(os.getcwd(), '.scheduler.lock')
-        _lock_file_handle = open(lock_file, 'wb')
+    def _do_init():
+        global _lock_file_handle
         try:
-            # Intentar bloquear el archivo
-            fcntl.flock(_lock_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            iniciar_scheduler()
-            print("🚀 Scheduler iniciado en este worker")
-        except OSError:
-            # El lock ya lo tiene otro worker (u otro proceso), no hacemos nada
-            _lock_file_handle.close()
-            _lock_file_handle = None
-    except ImportError:
-        # En Windows (Desarrollo)
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') == '1':
-            iniciar_scheduler()
-    except Exception as e:
-        print(f"⚠️ Error al inicializar scheduler: {e}")
+            # Solo en Linux/Unix (Producción)
+            import fcntl
+            import time
+            # Darle unos segundos adicionales para que el worker se estabilice
+            time.sleep(5) 
+            
+            lock_file = os.path.join(os.getcwd(), '.scheduler.lock')
+            _lock_file_handle = open(lock_file, 'wb')
+            try:
+                # Intentar bloquear el archivo
+                fcntl.flock(_lock_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                iniciar_scheduler()
+                print("🚀 Scheduler iniciado en este worker (background)")
+            except OSError:
+                # El lock ya lo tiene otro worker (u otro proceso), no hacemos nada
+                _lock_file_handle.close()
+                _lock_file_handle = None
+        except ImportError:
+            # En Windows (Desarrollo)
+            if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') == '1':
+                iniciar_scheduler()
+        except Exception as e:
+            print(f"⚠️ Error al inicializar scheduler: {e}")
+
+    # Ejecutar en un hilo separado para no bloquear el arranque de Gunicorn
+    import threading
+    thread = threading.Thread(target=_do_init, daemon=True)
+    thread.start()
 
 @app.route('/health')
 def health_check():
