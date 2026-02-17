@@ -11,7 +11,8 @@ class Config:
     # PostgreSQL - Codificar la contraseña para manejar caracteres especiales
     DB_USER = os.getenv('DB_USER', 'postgres')
     DB_PASSWORD = quote_plus(os.getenv('DB_PASSWORD', ''))
-    DB_HOST = os.getenv('DB_HOST', 'izi-fact-db') # Fallback para Easypanel
+    _temp_host = os.getenv('DB_HOST', 'izi-fact-db')
+    DB_HOST = 'izi-fact-db' if _temp_host == 'postgres' else _temp_host
     DB_PORT = os.getenv('DB_PORT', '5432')
     DB_NAME = os.getenv('DB_NAME', 'iziFact')
     
