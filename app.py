@@ -17,6 +17,11 @@ app.config.from_object(Config)
 
 # Inicializar extensiones
 db.init_app(app)
+
+# LOG DE DEPURACIÓN DE BASE DE DATOS (Muestra solo el Host por seguridad)
+with app.app_context():
+    db_host = app.config.get('SQLALCHEMY_DATABASE_URI').split('@')[-1].split(':')[0]
+    print(f"📡 INTENTANDO CONEXIÓN A DB EN: {db_host}")
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
