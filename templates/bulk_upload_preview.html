@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+
+{% block title %}Vista Previa - Carga Masiva{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold"><i class="bi bi-eye me-2"></i> Vista Previa de Carga</h2>
+        <p class="text-muted mb-0">Se han detectado <strong>{{ orders|length }}</strong> órdenes únicas en el archivo.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('bulk_upload') }}" class="btn btn-outline-secondary rounded-3">
+            <i class="bi bi-arrow-left me-1"></i> CANCELAR Y REINTENTAR
+        </a>
+        <button id="btnDownloadErrors" class="btn btn-outline-danger rounded-3 fw-bold px-3 d-none">
+            <i class="bi bi-file-earmark-excel me-1"></i> DESCARGAR ERRORES
+        </button>
+        <button id="btnProcessAll" class="btn btn-success rounded-3 fw-bold px-4">
+            <i class="bi bi-check2-all me-1"></i> PROCESAR ÓRDENES VÁLIDAS
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
+            <div class="card-body text-center">
+                <h6 class="text-primary fw-bold mb-0">TOTAL</h6>
+                <div class="display-6 fw-bold text-primary" id="count-total">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
+            <div class="card-body text-center">
+                <h6 class="text-success fw-bold mb-0">CORRECTOS (OK)</h6>
+                <div class="display-6 fw-bold text-success" id="count-ok">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+            <div class="card-body text-center">
+                <h6 class="text-warning fw-bold mb-0">ADVERTENCIAS</h6>
+                <div class="display-6 fw-bold text-warning" id="count-warning">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
+            <div class="card-body text-center">
+                <h6 class="text-danger fw-bold mb-0">ERRORES</h6>
+                <div class="display-6 fw-bold text-danger" id="count-error">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="previewTable">
+            <thead class="bg-light">
+                <tr>
+                    <th class="ps-4">Estado</th>
+                    <th>N° Orden</th>
+                    <th>Cliente</th>
+                    <th>Productos (Items)</th>
+                    <th>Total</th>
+                    <th class="text-end pe-4">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr class="order-row" data-order='{{ order|tojson|safe }}'>
+                    <td class="ps-4">
+                        {% if order.status == 'OK' %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+                            <i class="bi bi-check-circle me-1"></i> CORRECTO
+                        </span>
+                        {% elif order.status == 'WARNING' %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill">
+                            <i class="bi bi-exclamation-triangle me-1"></i> ADVERTENCIA
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">
+                            <i class="bi bi-x-circle me-1"></i> ERROR
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td><span class="fw-bold">{{ order.order_num }}</span></td>
+                    <td>
+                        <div class="fw-bold">{{ order.nombre }}</div>
+                        <div class="small text-muted">DNI: {{ order.dni }}</div>
+                    </td>
+                    <td>
+                        <ul class="list-unstyled mb-0 small">
+                            {% for item in order.order_items %}
+                            <li
+                                class="{% if item.match.status == 'error' %}text-danger{% elif item.match.status == 'warning' %}text-warning{% endif %}">
+                                <i class="bi bi-dot"></i> {{ item.match.name }}
+                                <span class="text-muted">(SKU: {{ item.sku_excel }})</span>
+                                <span class="fw-bold ms-1">S/ {{ "%.2f"|format(item.precio) }}</span>
+                                {% if item.match.status != 'ok' and item.desc_excel %}
+                                <div class="ms-4 mt-n1 text-secondary opacity-75"><small><i>Ref. Excel: <span
+                                                class="fw-bold">{{ item.desc_excel }}</span></i></small></div>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% if order.errors %}
+                        <div
+                            class="mt-1 small {% if order.status == 'ERROR' %}text-danger{% else %}text-warning{% endif %} fw-bold">
+                            <i class="bi bi-exclamation-circle me-1"></i> {{ order.errors|join(', ') }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td><strong class="text-primary">S/ {{ "%.2f"|format(order.total) }}</strong></td>
+                    <td class="text-end pe-4">
+                        <input type="checkbox" class="form-check-input order-select" {% if order.status !='ERROR'
+                            %}checked{% else %}disabled{% endif %}>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Resultado -->
+<div class="modal fade" id="modalResult" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-body text-center p-5">
+                <div id="processingIcon" class="mb-4">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                </div>
+                <div id="successIcon" class="mb-4 d-none">
+                    <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center"
+                        style="width: 80px; height: 80px;">
+                        <i class="bi bi-check-lg fs-1"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold" id="modalTitle">Procesando Órdenes...</h3>
+                <p class="text-muted mb-4" id="modalMsg">Estamos enviando la información a SUNAT.</p>
+
+                <div id="progressContainer" class="mb-4">
+                    <div class="progress rounded-pill shadow-sm" style="height: 12px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                            role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2 small fw-bold">
+                        <span id="progressText" class="text-primary">Iniciando...</span>
+                        <span id="progressPercent" class="text-muted">0%</span>
+                    </div>
+                </div>
+
+                <div id="statsReport" class="row mt-4 d-none">
+                    <div class="col-6">
+                        <div class="h2 fw-bold text-success mb-0" id="statOk">0</div>
+                        <div class="small text-muted text-uppercase fw-bold">Éxitos</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="h2 fw-bold text-danger mb-0" id="statError">0</div>
+                        <div class="small text-muted text-uppercase fw-bold">Errores</div>
+                    </div>
+                </div>
+
+                <div class="mt-5 d-none" id="btnGroupFinish">
+                    <a href="{{ url_for('ventas_list') }}" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3">
+                        IR A LISTA DE VENTAS
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="statsReport" class="row mt-4 d-none">
+    <div class="col-6">
+        <div class="h2 fw-bold text-success mb-0" id="statOk">0</div>
+        <div class="small text-muted text-uppercase fw-bold">Éxitos</div>
+    </div>
+    <div class="col-6">
+        <div class="h2 fw-bold text-danger mb-0" id="statError">0</div>
+        <div class="small text-muted text-uppercase fw-bold">Errores</div>
+    </div>
+</div>
+
+<div class="mt-5 d-none" id="btnGroupFinish">
+    <a href="{{ url_for('ventas_list') }}" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3">
+        IR A LISTA DE VENTAS
+    </a>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- DATA HIDDEN FOR JS -->
+<div id="rusData" data-total-mes="{{ total_mes_actual }}" data-cat1="{{ rus_cat1 }}" data-cat2="{{ rus_cat2 }}">
+</div>
+
+<!-- Confetti for success effect -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+
+
+<script>
+    $(document).ready(function () {
+        calculateRUSImpact();
+        updateStatusCounters();
+
+        // Recalcular al cambiar selección
+        $('.order-select').on('change', function () {
+            calculateRUSImpact();
+        });
+
+        $('#select-all-orders').on('change', function () {
+            calculateRUSImpact();
+        });
+    });
+
+    function updateStatusCounters() {
+        let total = 0;
+        let ok = 0;
+        let warning = 0;
+        let error = 0;
+
+        $('.order-row').each(function () {
+            total++;
+            const status = $(this).data('order').status; // OK, WARNING, ERROR
+
+            if (status === 'OK') ok++;
+            else if (status === 'WARNING') warning++;
+            else if (status === 'ERROR') error++;
+        });
+
+        $('#count-total').text(total);
+        $('#count-ok').text(ok);
+        $('#count-warning').text(warning);
+        $('#count-error').text(error);
+
+        // Mostrar botón de descargar errores si hay warnings o errores
+        if (warning > 0 || error > 0) {
+            $('#btnDownloadErrors').removeClass('d-none');
+        } else {
+            $('#btnDownloadErrors').addClass('d-none');
+        }
+    }
+
+    $('#btnDownloadErrors').on('click', function () {
+        downloadErrors();
+    });
+
+    async function downloadErrors() {
+        const errorOrders = [];
+        $('.order-row').each(function () {
+            const orderData = $(this).data('order');
+            if (orderData.status === 'WARNING' || orderData.status === 'ERROR') {
+                errorOrders.push(orderData);
+            }
+        });
+
+        if (errorOrders.length === 0) {
+            Swal.fire('Info', 'No hay errores para descargar', 'info');
+            return;
+        }
+
+        try {
+            // Mostrar loading
+            const btn = $('#btnDownloadErrors');
+            const originalText = btn.html();
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generando...');
+
+            const response = await fetch("{{ url_for('download_bulk_errors') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orders: errorOrders })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Descargar archivo base64
+                const link = document.createElement('a');
+                link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + result.filedata;
+                link.download = result.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                Swal.fire('Error', result.error || 'Error al generar reporte', 'error');
+            }
+
+            // Restaurar botón
+            btn.prop('disabled', false).html(originalText);
+
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'Error de conexión', 'error');
+            $('#btnDownloadErrors').prop('disabled', false).html('<i class="bi bi-file-earmark-excel me-1"></i> DESCARGAR ERRORES');
+        }
+    }
+
+
+    function calculateRUSImpact() {
+        const rusData = document.getElementById('rusData').dataset;
+        const totalMes = parseFloat(rusData.totalMes);
+        const limit1 = parseFloat(rusData.cat1);
+        const limit2 = parseFloat(rusData.cat2);
+
+        let totalUpload = 0;
+
+        // Sumar solo órdenes OK seleccionadas (ya que solo esas se procesarán)
+        $('.order-row').each(function () {
+            const order = $(this).data('order');
+
+            // Logica corregida: Status es 'WARNING' (mayuscula)
+            // Solo sumamos si es OK y está chequeado
+            if ($(this).find('.order-select').is(':checked')) {
+                if (order.status === 'OK') {
+                    totalUpload += parseFloat(order.total);
+                }
+            }
+        });
+
+        const totalProjected = totalMes + totalUpload;
+        const percent = (totalProjected / limit2) * 100;
+
+        // Actualizar UI del Monitor (Si existe el elemento, si no lo creamos dinámicamente)
+        updateRUSUI(totalMes, totalUpload, limit1, limit2);
+    }
+
+    function updateRUSUI(current, incoming, limit1, limit2) {
+        const total = current + incoming;
+        const percent = Math.min((total / limit2) * 100, 100);
+
+        let colorClass = 'bg-success';
+        let statusText = 'Dentro del límite';
+        let btnDisabled = false;
+
+        if (total > limit2) {
+            colorClass = 'bg-danger';
+            statusText = '⚠️ LÍMITE RUS EXCEDIDO (S/ 8,000)';
+            btnDisabled = true;
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Límite RUS Excedido',
+                text: `Con esta carga llegarías a S/ ${total.toFixed(2)}, superando el límite de S/ ${limit2}. No es posible procesar.`,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000
+            });
+
+        } else if (total > limit1) {
+            colorClass = 'bg-warning';
+            statusText = '⚠️ Atención: Supera Categoría 1 (S/ 5,000)';
+        }
+
+        // Actualizar botón de procesar
+        $('#btnProcessAll').prop('disabled', btnDisabled);
+        if (btnDisabled) {
+            $('#btnProcessAll').text('BLOQUEADO POR RUS');
+            $('#btnProcessAll').removeClass('btn-success').addClass('btn-secondary');
+        } else {
+            $('#btnProcessAll').text('PROCESAR PEDIDOS VÁLIDOS');
+            $('#btnProcessAll').removeClass('btn-secondary').addClass('btn-success');
+        }
+
+        // Inyectar barra visual si no existe
+        if ($('#rusMonitorBar').length === 0) {
+            const barHtml = `
+                <div class="card mb-4 border-${total > limit2 ? 'danger' : 'light'} shadow-sm" id="rusMonitorBar">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small fw-bold text-muted">Monitor RUS (Proyección)</span>
+                            <span class="badge ${total > limit2 ? 'bg-danger' : (total > limit1 ? 'bg-warning text-dark' : 'bg-success')}">
+                                ${statusText}
+                            </span>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-secondary" role="progressbar" style="width: ${(current / limit2) * 100}%" title="Vendido antes de carga: S/ ${current.toFixed(2)}">
+                                S/ ${current.toFixed(2)}
+                            </div>
+                            <div class="progress-bar ${total > limit2 ? 'bg-danger functionality-striped' : 'bg-info'}" role="progressbar" style="width: ${(incoming / limit2) * 100}%" title="Esta carga: S/ ${incoming.toFixed(2)}">
+                                + S/ ${incoming.toFixed(2)}
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1" style="font-size: 0.75rem;">
+                            <span>0</span>
+                            <span>Cat 1: S/ ${limit1}</span>
+                            <span>Cat 2: S/ ${limit2}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            $('.container-fluid h2').after(barHtml);
+        } else {
+            // Actualizar existente (simplificado para este paso, idealmente actualizar widths)
+            $('#rusMonitorBar').replaceWith(`
+                <div class="card mb-4 border-${total > limit2 ? 'danger' : 'light'} shadow-sm" id="rusMonitorBar">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small fw-bold text-muted">Monitor RUS (Proyección)</span>
+                            <span class="badge ${total > limit2 ? 'bg-danger' : (total > limit1 ? 'bg-warning text-dark' : 'bg-success')}">
+                                ${statusText}
+                            </span>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-secondary" role="progressbar" style="width: ${(current / limit2) * 100}%" title="Vendido antes de carga: S/ ${current.toFixed(2)}">
+                                S/ ${current.toFixed(2)}
+                            </div>
+                            <div class="progress-bar ${total > limit2 ? 'bg-danger functionality-striped' : 'bg-info'}" role="progressbar" style="width: ${(incoming / limit2) * 100}%" title="Esta carga: S/ ${incoming.toFixed(2)}">
+                                + S/ ${incoming.toFixed(2)}
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1" style="font-size: 0.75rem;">
+                            <span>0</span>
+                            <span>Cat 1: S/ ${limit1}</span>
+                            <span>Cat 2: S/ ${limit2}</span>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+    }
+    $('#btnProcessAll').on('click', function () {
+        const selectedOrders = [];
+        $('.order-row').each(function () {
+            // Solo procesar si está chequeado Y el estado es estrictamente OK
+            if ($(this).find('.order-select').is(':checked')) {
+                const orderData = $(this).data('order');
+                // IMPORTANTE: Filtrar Warnings y Errores
+                if (orderData.status === 'OK') {
+                    selectedOrders.push(orderData);
+                }
+            }
+        });
+
+        if (selectedOrders.length === 0) {
+            showToast('Aviso', 'No hay órdenes válidas (OK) seleccionadas para procesar', 'warning');
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Confirmar carga masiva?',
+            text: `Se procesarán ${selectedOrders.length} órdenes y se enviarán a SUNAT.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'SÍ, PROCESAR TODO',
+            cancelButtonText: 'CANCELAR',
+            confirmButtonColor: '#198754'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                processOrders(selectedOrders);
+            }
+        });
+    });
+
+    async function processOrders(orders) {
+        const modal = new bootstrap.Modal(document.getElementById('modalResult'));
+        modal.show();
+
+        let successCount = 0;
+        let errorCount = 0;
+        const total = orders.length;
+
+        $('#statsReport').removeClass('d-none');
+        $('#btnGroupFinish').addClass('d-none');
+        $('#progressContainer').removeClass('d-none');
+
+        // Reset progress
+        $('#progressBar').css('width', '0%').removeClass('bg-success bg-danger').addClass('bg-primary');
+        $('#progressPercent').text('0%');
+        $('#statOk').text('0');
+        $('#statError').text('0');
+
+        for (let i = 0; i < total; i++) {
+            const currentOrder = orders[i];
+            const progress = Math.round(((i + 1) / total) * 100);
+
+            $('#progressText').text(`Procesando: ${currentOrder.order_num}`);
+
+            try {
+                const response = await fetch("{{ url_for('bulk_process') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orders: [currentOrder] })
+                });
+
+                const r = await response.json();
+
+                if (r.success && r.report.success > 0) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (err) {
+                console.error("Error processing order", currentOrder.order_num, err);
+                errorCount++;
+            }
+
+            // Update UI
+            $('#progressBar').css('width', `${progress}%`);
+            $('#progressPercent').text(`${progress}%`);
+            $('#statOk').text(successCount);
+            $('#statError').text(errorCount);
+        }
+
+        // Finalize UI
+        $('#progressContainer').addClass('d-none');
+        $('#processingIcon').addClass('d-none');
+        $('#successIcon').removeClass('d-none');
+        $('#modalTitle').text('¡Proceso Completado!');
+        $('#modalMsg').text('Se han terminado de procesar todas las órdenes seleccionadas.');
+        $('#btnGroupFinish').removeClass('d-none');
+
+        if (errorCount === 0) {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+    }
+</script>
+{% endblock %}
