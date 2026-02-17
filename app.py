@@ -435,6 +435,7 @@ def nueva_venta():
                     print(f" [SALE-FLOW] ✅ Venta {numero_completo} procesada y guardada.")
                     flash(f'Venta {numero_completo} generada y enviada a SUNAT exitosamente.', 'success')
                 else:
+                    print(f" [SALE-FLOW] ❌ Error en MiPSE: {resultado}")
                     flash(f'Venta {numero_completo} creada localmente, pero hubo un error con SUNAT: {resultado.get("message")}', 'warning')
             except Exception as sunat_err:
                 print(f" [SALE-FLOW] ❌ Error en envío directo SUNAT: {str(sunat_err)}")

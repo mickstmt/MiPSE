@@ -109,14 +109,16 @@ class MiPSEService:
                 print(f"[MiPSE] Error obteniendo token: {error_msg}")
                 return {
                     'success': False,
-                    'error': f"Error {response.status_code}: {error_msg}"
+                    'error': f"Error {response.status_code}: {error_msg}",
+                    'message': f"Error {response.status_code}: {error_msg}"
                 }
 
         except Exception as e:
             print(f"[MiPSE] Excepcion obteniendo token: {str(e)}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'message': str(e)
             }
 
     def _get_token(self):
@@ -200,14 +202,16 @@ class MiPSEService:
                 print(f"[MiPSE] Error firmando: {error_msg}")
                 return {
                     'success': False,
-                    'error': f"Error {response.status_code}: {error_msg}"
+                    'error': f"Error {response.status_code}: {error_msg}",
+                    'message': f"Error en firma: {error_msg}"
                 }
 
         except Exception as e:
             print(f"[MiPSE] Excepcion firmando XML: {str(e)}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'message': f"Excepción en firma: {str(e)}"
             }
 
     def enviar_comprobante(self, nombre_archivo, xml_firmado_base64):
@@ -286,7 +290,8 @@ class MiPSEService:
             print(f"[MiPSE] Excepcion enviando: {str(e)}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'message': f"Excepción en envío: {str(e)}"
             }
 
     def consultar_estado(self, nombre_archivo):
@@ -382,7 +387,8 @@ class MiPSEService:
             if not firma_result['success']:
                 return {
                     'success': False,
-                    'error': f"Error firmando XML: {firma_result.get('error')}"
+                    'error': f"Error firmando XML: {firma_result.get('error')}",
+                    'message': firma_result.get('message') or firma_result.get('error')
                 }
 
             xml_firmado = firma_result.get('xml_firmado')
@@ -446,7 +452,8 @@ class MiPSEService:
             traceback.print_exc()
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'message': f"Error crítico: {str(e)}"
             }
 
 
