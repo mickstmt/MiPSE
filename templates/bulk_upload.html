@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Carga Masiva de Ventas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                        style="width: 80px; height: 80px;">
+                        <i class="bi bi-cloud-arrow-up fs-1"></i>
+                    </div>
+                    <h2 class="fw-bold">Carga Masiva desde Excel</h2>
+                    <p class="text-muted">Suba su archivo .xlsx para procesar órdenes de manera masiva.</p>
+                </div>
+
+                <div class="alert alert-info border-0 rounded-4">
+                    <h6 class="fw-bold"><i class="bi bi-info-circle me-1"></i> Requerimientos del Excel:</h6>
+                    <ul class="small mb-0">
+                        <li><strong>Columna B</strong>: SKU del producto o variación.</li>
+                        <li><strong>Columna E</strong>: Número de Orden (Agrupador).</li>
+                        <li><strong>Columna J</strong>: Nombre del Cliente.</li>
+                        <li><strong>Columna L</strong>: DNI/RUC del Cliente.</li>
+                        <li><strong>Columna AJ</strong>: Precio Total del Item.</li>
+                    </ul>
+                </div>
+
+                <form action="{{ url_for('bulk_upload') }}" method="POST" enctype="multipart/form-data" class="mt-4"
+                    id="uploadForm">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Seleccionar Archivo Excel</label>
+                        <div id="dropZone"
+                            class="border-2 border-dashed border-primary rounded-4 p-5 text-center bg-light bg-opacity-10 mb-3"
+                            style="cursor: pointer; transition: all 0.2s;">
+                            <i class="bi bi-file-earmark-excel fs-1 text-primary mb-3 d-block"></i>
+                            <p class="mb-1 fw-bold" id="dropZoneText">Arrastre su archivo aquí o haga clic para buscar
+                            </p>
+                            <p class="small text-muted mb-0">Solo archivos .xlsx y .xls</p>
+                            <input type="file" name="file" id="inputFile" accept=".xlsx, .xls" class="d-none">
+                        </div>
+                        <div id="fileInfo"
+                            class="d-none alert alert-success py-2 px-3 rounded-3 d-flex align-items-center justify-content-between">
+                            <span id="fileName" class="small fw-bold text-truncate"></span>
+                            <button type="button" class="btn btn-sm" id="btnRemoveFile"><i
+                                    class="bi bi-x-circle text-danger"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-3 fw-bold py-3" id="btnSubmit">
+                            <span class="spinner-border spinner-border-sm d-none me-2" id="btnSpinner"></span>
+                            <i class="bi bi-search me-1" id="btnIcon"></i> ANALIZAR EXCEL Y VER PREVIEW
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('ventas_list') }}" class="text-muted text-decoration-none small">
+                <i class="bi bi-arrow-left me-1"></i> Volver a la lista de ventas
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const inputFile = document.getElementById('inputFile');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileNameDisplay = document.getElementById('fileName');
+    const btnRemoveFile = document.getElementById('btnRemoveFile');
+
+    // Al hacer clic en el dropZone, disparar el input file
+    dropZone.onclick = () => inputFile.click();
+
+    // Manejar cambio en input file
+    inputFile.onchange = (e) => handleFile(e.target.files[0]);
+
+    // Prevenir comportamientos por defecto para drag & drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
+    // Efectos visuales de drag
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('bg-primary', 'bg-opacity-10', 'border-solid');
+            dropZone.style.borderColor = 'var(--primary-color)';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('bg-primary', 'bg-opacity-10', 'border-solid');
+            dropZone.style.borderColor = '#2563eb';
+        }, false);
+    });
+
+    // Manejar el Drop
+    dropZone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            inputFile.files = dataTransfer.files;
+            handleFile(file);
+        }
+    }, false);
+
+    function handleFile(file) {
+        if (!file) return;
+
+        // Validar extensión
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'xlsx' && ext !== 'xls') {
+            showToast('Archivo no válido', 'Por favor, suba un archivo Excel (.xlsx o .xls)', 'warning');
+            inputFile.value = '';
+            return;
+        }
+
+        fileNameDisplay.textContent = file.name;
+        dropZone.classList.add('d-none');
+        fileInfo.classList.remove('d-none');
+    }
+
+    btnRemoveFile.onclick = (e) => {
+        e.stopPropagation();
+        inputFile.value = '';
+        fileInfo.classList.add('d-none');
+        dropZone.classList.remove('d-none');
+    };
+
+    $('#uploadForm').on('submit', function () {
+        if (!inputFile.files.length) {
+            showToast('Falta archivo', 'Por favor seleccione un archivo Excel', 'warning');
+            return false;
+        }
+        $('#btnSubmit').prop('disabled', true);
+        $('#btnSpinner').removeClass('d-none');
+        $('#btnIcon').addClass('d-none');
+        showToast('Analizando', 'Procesando el archivo Excel, por favor espere...', 'info');
+    });
+</script>
+{% endblock %}
