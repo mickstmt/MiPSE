@@ -219,6 +219,73 @@ def dashboard():
                          limite_cat2=limite_cat2,
                          now=datetime.now())
 
+def get_customer_data(tipo, numero, nombre_fallback=None, timeout=4):
+    """
+    Busca un cliente localmente o en el API externo (ApisPeru).
+    Retorna (cliente, encontrado_en_db_local)
+    """
+    try:
+        # 1. Buscar primero en la base de datos local
+        cliente = Cliente.query.filter_by(numero_documento=numero).first()
+        if cliente:
+            print(f" [CUSTOMER-HELPER] Cliente {numero} encontrado localmente")
+            return cliente, True
+
+        # 2. Si no existe y es DNI, intentar con ApisPeru
+        # Solo DNI de 8 dígitos para evitar errores con otros documentos
+        if tipo == 'DNI' and len(str(numero)) == 8:
+            print(f" [CUSTOMER-HELPER] Buscando {numero} en ApisPeru (timeout {timeout}s)...")
+            try:
+                token = app.config.get('APISPERU_TOKEN')
+                dni_url = app.config.get('APISPERU_DNI_URL')
+                
+                if token and dni_url:
+                    url = f"{dni_url}/{numero}?token={token}"
+                    response = requests.get(url, timeout=timeout)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if 'dni' in data:
+                            print(f" [CUSTOMER-HELPER] Datos encontrados en API para {numero}")
+                            nuevo_cliente = Cliente(
+                                tipo_documento='DNI',
+                                numero_documento=data['dni'],
+                                nombres=data['nombres'],
+                                apellido_paterno=data['apellidoPaterno'],
+                                apellido_materno=data['apellidoMaterno']
+                            )
+                            db.session.add(nuevo_cliente)
+                            db.session.flush() # Flush para tener ID sin commit final
+                            return nuevo_cliente, False
+                        else:
+                            print(f" [CUSTOMER-HELPER] API no retornó 'dni' para {numero}: {data}")
+                    else:
+                        print(f" [CUSTOMER-HELPER] API retornó status {response.status_code} para {numero}")
+            except Exception as api_err:
+                print(f" [CUSTOMER-HELPER] ⚠️ Error llamando a API DNI: {str(api_err)}")
+
+        # 3. Fallback: Crear manual si tenemos nombre_fallback
+        if nombre_fallback:
+            print(f" [CUSTOMER-HELPER] Creando cliente {numero} con nombre fallback: {nombre_fallback}")
+            nuevo_cliente = Cliente(
+                tipo_documento=tipo,
+                numero_documento=numero,
+                nombres=nombre_fallback,
+                apellido_paterno="",
+                apellido_materno=""
+            )
+            db.session.add(nuevo_cliente)
+            db.session.flush()
+            return nuevo_cliente, False
+
+        return None, False
+
+    except Exception as e:
+        print(f" [CUSTOMER-HELPER] ❌ Error crítico: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None, False
+
 # ==================== API CONSULTA DNI/RUC ====================
 
 @app.route('/api/buscar-cliente/<tipo>/<numero>')
@@ -226,75 +293,31 @@ def dashboard():
 def buscar_cliente(tipo, numero):
     print(f" [BUSCAR-DEBUG] {datetime.now()} -> Iniciando busqueda para {tipo}: {numero}")
     try:
-        # 1. Buscar primero en la base de datos local
-        print(f" [BUSCAR-DEBUG] {datetime.now()} -> Verificando en base de datos local...")
-        try:
-            cliente_existente = Cliente.query.filter_by(numero_documento=numero).first()
-            if cliente_existente:
-                print(f" [BUSCAR-DEBUG] {datetime.now()} -> Cliente encontrado localmente: {cliente_existente.nombre_completo}")
-                return jsonify({
-                    'success': True,
-                    'existe': True,
-                    'cliente': {
-                        'id': cliente_existente.id,
-                        'nombre_completo': cliente_existente.nombre_completo,
-                        'numero_documento': cliente_existente.numero_documento,
-                        'tipo_documento': cliente_existente.tipo_documento,
-                        'direccion': cliente_existente.direccion or ''
-                    }
-                })
-        except Exception as db_err:
-            print(f" [BUSCAR-DEBUG] ❌ Error en consulta local: {str(db_err)}")
-            db.session.rollback()
-
-        # 2. Si no existe y es DNI, intentar con ApisPeru
-        if tipo == 'DNI':
-            print(f" [BUSCAR-DEBUG] {datetime.now()} -> No encontrado local. Intentando ApisPeru...")
-            try:
-                token = app.config['APISPERU_TOKEN']
-                url = f"{app.config['APISPERU_DNI_URL']}/{numero}?token={token}"
-                print(f" [BUSCAR-DEBUG] {datetime.now()} -> URL: {url} (con timeout 4s)")
-                response = requests.get(url, timeout=4)
-                print(f" [BUSCAR-DEBUG] {datetime.now()} -> Respuesta API: {response.status_code}")
+        cliente, local = get_customer_data(tipo, numero)
+        
+        if cliente:
+            if not local:
+                db.session.commit() # Si lo trajo de la API, guardamos
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    if 'dni' in data:
-                        print(f" [BUSCAR-DEBUG] {datetime.now()} -> Datos encontrados en API. Guardando...")
-                        cliente = Cliente(
-                            tipo_documento='DNI',
-                            numero_documento=data['dni'],
-                            nombres=data['nombres'],
-                            apellido_paterno=data['apellidoPaterno'],
-                            apellido_materno=data['apellidoMaterno']
-                        )
-                        db.session.add(cliente)
-                        db.session.commit()
-                        print(f" [BUSCAR-DEBUG] {datetime.now()} -> Cliente guardado y commit exitoso.")
-                        
-                        return jsonify({
-                            'success': True,
-                            'existe': False,
-                            'cliente': {
-                                'id': cliente.id,
-                                'nombre_completo': cliente.nombre_completo,
-                                'numero_documento': cliente.numero_documento,
-                                'tipo_documento': cliente.tipo_documento
-                            }
-                        })
-            except Exception as e:
-                print(f" [BUSCAR-DEBUG] {datetime.now()} -> ⚠️ Error en API DNI: {str(e)}")
-                # No es necesario rollback aquí a menos que hayamos hecho un db.session.add incompleto
-                db.session.rollback()
-
-        # 3. Si llegamos aquí (o es CE, o no se encontró en API, o hubo error de red)
-        print(f" [BUSCAR-DEBUG] {datetime.now()} -> Retornando fallback manual.")
+            return jsonify({
+                'success': True,
+                'existe': local,
+                'cliente': {
+                    'id': cliente.id,
+                    'nombre_completo': cliente.nombre_completo,
+                    'numero_documento': cliente.numero_documento,
+                    'tipo_documento': cliente.tipo_documento,
+                    'direccion': cliente.direccion or ''
+                }
+            })
+        
+        # Si no se encontró ni en local ni en API (y no se pasó fallback)
         return jsonify({
             'success': False, 
             'allow_manual': True, 
             'message': f'{tipo} no encontrado o servicio no disponible. Ingrese datos manualmente.'
         }), 404
-            
+                
     except Exception as e:
         print(f" [BUSCAR-DEBUG] {datetime.now()} -> ❌ Error critico en ruta: {str(e)}")
         db.session.rollback()
@@ -1179,20 +1202,14 @@ def bulk_process():
                     results['success'] += 1 # Contamos como procesado si ya existe
                     continue
 
-                # 1. Buscar o Crear Cliente
-                cliente = Cliente.query.filter_by(numero_documento=o['dni']).first()
+                # 1. Buscar o Crear Cliente (Inteligente con API)
+                # Usamos timeout de 3s para no colgar la carga masiva
+                cliente, _ = get_customer_data('DNI', o['dni'], nombre_fallback=o['nombre'], timeout=3)
+                
                 if not cliente:
-                    # En models.py se usa 'nombres' para el nombre completo en DNI
-                    # Inicializamos apellidos vacíos para evitar 'None None'
-                    cliente = Cliente(
-                        nombres=o['nombre'],
-                        apellido_paterno="",
-                        apellido_materno="",
-                        tipo_documento='DNI',
-                        numero_documento=o['dni']
-                    )
-                    db.session.add(cliente)
-                    db.session.flush()
+                    # Caso extremo si falló todo
+                    results['errors'] += 1
+                    continue
                 
                 # 2. Generar Correlativo (Boleta)
                 serie = app.config.get('SERIE_BOLETA', 'B001')
