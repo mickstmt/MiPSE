@@ -21,8 +21,9 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Scheduler global para envío automático
+# Globales para el scheduler y protección de concurrencia
 scheduler = None
+_lock_file_handle = None  # Mantener vivo para que fcntl no libere el lock
 
 def iniciar_scheduler():
     """Inicia el servicio de tareas programadas"""
@@ -43,26 +44,32 @@ atexit.register(detener_scheduler)
 # Inicializar scheduler solo en el proceso principal o el primer worker
 # En producción (Gunicorn), esto asegura que solo una instancia corra
 def init_scheduler_production():
+    global _lock_file_handle
     try:
         # Solo en Linux/Unix (Producción)
         import fcntl
-        # Usar una ruta absoluta para el lock para evitar problemas de contexto
         lock_file = os.path.join(os.getcwd(), '.scheduler.lock')
-        f = open(lock_file, 'wb')
+        _lock_file_handle = open(lock_file, 'wb')
         try:
-            # LOCK_NB significa "No Bloqueante". Si otro worker lo tiene, lanzará OSError
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Intentar bloquear el archivo
+            fcntl.flock(_lock_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             iniciar_scheduler()
             print("🚀 Scheduler iniciado en este worker")
         except OSError:
-            # El lock ya lo tiene otro worker, no hacemos nada
-            pass
+            # El lock ya lo tiene otro worker (u otro proceso), no hacemos nada
+            _lock_file_handle.close()
+            _lock_file_handle = None
     except ImportError:
         # En Windows (Desarrollo)
         if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') == '1':
             iniciar_scheduler()
     except Exception as e:
         print(f"⚠️ Error al inicializar scheduler: {e}")
+
+@app.route('/health')
+def health_check():
+    """Ruta simple para health checks de Easypanel/Docker"""
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()}), 200
 
 @login_manager.user_loader
 def load_user(user_id):
