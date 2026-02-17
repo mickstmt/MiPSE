@@ -37,7 +37,27 @@ def detener_scheduler():
     if scheduler:
         scheduler.detener()
 
+# Registrar detención al salir
 atexit.register(detener_scheduler)
+
+# Inicializar scheduler solo en el proceso principal o el primer worker
+# En producción (Gunicorn), esto asegura que solo una instancia corra
+def init_scheduler_production():
+    try:
+        # Solo en Linux/Unix (Producción)
+        import fcntl
+        f = open('.scheduler.lock', 'wb')
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            iniciar_scheduler()
+            print("🚀 Scheduler iniciado en este worker")
+        except str as e:
+            # Ya está bloqueado por otro worker
+            pass
+    except ImportError:
+        # En Windows (Desarrollo)
+        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+            iniciar_scheduler()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -1451,12 +1471,13 @@ def download_bulk_errors():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Iniciar directorios
+os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(Config.COMPROBANTES_PATH, exist_ok=True)
+
+# Iniciar scheduler (con protección de bloqueo en producción)
+with app.app_context():
+    init_scheduler_production()
+
 if __name__ == '__main__':
-    # Verificar existencia de directorios
-    os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
-
-    # Iniciar el scheduler antes de correr la aplicación
-    with app.app_context():
-        iniciar_scheduler()
-
     app.run(debug=True, host='0.0.0.0', port=5000)

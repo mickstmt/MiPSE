@@ -23,3 +23,5 @@ comprobantes/
 instance/
 .env
 .DS_Store
+*.sql
+.scheduler.lock
