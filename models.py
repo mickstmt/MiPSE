@@ -47,7 +47,9 @@ class Cliente(db.Model):
     @property
     def nombre_completo(self):
         if self.tipo_documento == 'DNI':
-            return f"{self.nombres} {self.apellido_paterno} {self.apellido_materno}".strip()
+            # Filtrar valores None para evitar "Nombre None None"
+            partes = [self.nombres, self.apellido_paterno, self.apellido_materno]
+            return " ".join(filter(None, partes)).strip()
         else:
             return self.razon_social
     
