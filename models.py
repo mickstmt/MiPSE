@@ -5,6 +5,39 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
+# Tablas intermedias para RBAC (Roles y Permisos)
+usuario_roles = db.Table('usuario_roles',
+    db.Column('usuario_id', db.Integer, db.ForeignKey('usuarios.id'), primary_key=True),
+    db.Column('rol_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True)
+)
+
+rol_permisos = db.Table('rol_permisos',
+    db.Column('rol_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True),
+    db.Column('permiso_id', db.Integer, db.ForeignKey('permisos.id'), primary_key=True)
+)
+
+class Permiso(db.Model):
+    __tablename__ = 'permisos'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    codigo = db.Column(db.String(50), unique=True, nullable=False) # ej: 'ventas.crear'
+    
+    def __repr__(self):
+        return f'<Permiso {self.codigo}>'
+
+class Rol(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), unique=True, nullable=False)
+    descripcion = db.Column(db.String(200))
+    
+    permisos = db.relationship('Permiso', secondary=rol_permisos, lazy='subquery',
+                               backref=db.backref('roles', lazy=True))
+    
+    def __repr__(self):
+        return f'<Rol {self.nombre}>'
+
+
 class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuarios'
     
@@ -17,6 +50,13 @@ class Usuario(UserMixin, db.Model):
     activo = db.Column(db.Boolean, default=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Nuevos campos para auditoría y RBAC
+    ultimo_login = db.Column(db.DateTime)
+    ip_registro = db.Column(db.String(45))
+    
+    roles = db.relationship('Rol', secondary=usuario_roles, lazy='subquery',
+                            backref=db.backref('usuarios', lazy=True))
+    
     ventas = db.relationship('Venta', backref='vendedor', lazy=True)
     
     def set_password(self, password):
@@ -24,6 +64,16 @@ class Usuario(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def tiene_permiso(self, codigo_permiso):
+        """Verifica si el usuario tiene un permiso específico a través de sus roles."""
+        if self.es_admin:
+            return True
+        for rol in self.roles:
+            for permiso in rol.permisos:
+                if permiso.codigo == codigo_permiso:
+                    return True
+        return False
     
     def __repr__(self):
         return f'<Usuario {self.username}>'

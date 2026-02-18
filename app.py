@@ -8,6 +8,21 @@ from sunat_service import SUNATService
 from mipse_service import MiPSEService
 from scheduler_service import SchedulerService
 import requests
+
+AUTHORIZED_EMAILS = [
+    'admin@izistoreperu.com',
+    'mickstmt@izistoreperu.com',
+    'franksmaza@izistoreperu.com',
+    'jleon@izistoreperu.com',
+    'jsanmartin@izistoreperu.com',
+    'almacen@izistoreperu.com',
+    'inventario@izistoreperu.com',
+    'aherrera@izistoreperu.com',
+    'dduire@izistoreperu.com',
+    'llago@izistoreperu.com',
+    'ventasizistoreperu@izistoreperu.com',
+    'msanmartin@izistoreperu.com'
+]
 import os
 import atexit
 import base64
@@ -91,6 +106,23 @@ def health_check():
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
+# ==================== DECORADORES DE SEGURIDAD ====================
+
+def permiso_requerido(codigo_permiso):
+    from functools import wraps
+    from flask import abort
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for('login'))
+            if not current_user.tiene_permiso(codigo_permiso):
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 # ==================== RUTAS DE AUTENTICACIÓN ====================
 
 @app.route('/')
@@ -120,6 +152,10 @@ def login():
                 flash('Tu cuenta está desactivada', 'danger')
                 return render_template('login.html')
             
+            # Auditoría de acceso
+            usuario.ultimo_login = datetime.utcnow()
+            db.session.commit()
+            
             login_user(usuario)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': True, 'redirect': url_for('dashboard')})
@@ -145,11 +181,12 @@ def registro():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        # Validar dominio
-        if not email.endswith('@izistoreperu.com'):
+        # Validar Whitelist (Seguridad Estricta)
+        if email not in AUTHORIZED_EMAILS:
+            mensaje = 'Este correo no está en la lista de personal autorizado.'
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'message': 'Solo se permiten correos @izistoreperu.com'})
-            flash('Solo se permiten usuarios con correo @izistoreperu.com', 'danger')
+                return jsonify({'success': False, 'message': mensaje})
+            flash(mensaje, 'danger')
             return render_template('login.html')
         
         # Verificar si email ya existe
@@ -167,7 +204,13 @@ def registro():
             return render_template('login.html')
         
         # Crear usuario
-        usuario = Usuario(nombre=nombre, username=username, email=email, es_admin=True)
+        usuario = Usuario(
+            nombre=nombre, 
+            username=username, 
+            email=email, 
+            es_admin=False, # Los permisos se manejarán por Roles
+            ip_registro=request.remote_addr
+        )
         usuario.set_password(password)
         
         db.session.add(usuario)
@@ -180,6 +223,50 @@ def registro():
         return redirect(url_for('login'))
     
     return render_template('login.html')
+
+# ==================== GESTIÓN DE USUARIOS Y ROLES (RBAC) ====================
+
+@app.route('/admin/usuarios')
+@login_required
+@permiso_requerido('usuarios.gestionar')
+def admin_usuarios():
+    from models import Role, Rol
+    usuarios = Usuario.query.all()
+    roles = Rol.query.all()
+    return render_template('admin_usuarios.html', usuarios=usuarios, roles=roles)
+
+@app.route('/admin/usuarios/toggle/<int:user_id>', methods=['POST'])
+@login_required
+@permiso_requerido('usuarios.gestionar')
+def toggle_usuario(user_id):
+    usuario = Usuario.query.get_or_404(user_id)
+    if usuario.id == current_user.id:
+        return jsonify({'success': False, 'message': 'No puedes desactivarte a ti mismo'}), 400
+    
+    usuario.activo = not usuario.activo
+    db.session.commit()
+    
+    status = "activado" if usuario.activo else "desactivado"
+    return jsonify({'success': True, 'message': f'Usuario {usuario.username} {status} exitosamente'})
+
+@app.route('/admin/usuarios/rol/<int:user_id>', methods=['POST'])
+@login_required
+@permiso_requerido('usuarios.gestionar')
+def update_user_role(user_id):
+    usuario = Usuario.query.get_or_404(user_id)
+    rol_id = request.json.get('rol_id')
+    
+    from models import Rol
+    rol = Rol.query.get(rol_id)
+    if not rol:
+        return jsonify({'success': False, 'message': 'Rol no encontrado'}), 404
+    
+    # Por ahora manejamos un solo rol por usuario para simplificar el selector
+    usuario.roles = [rol]
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': f'Rol {rol.nombre} asignado a {usuario.username}'})
+
 
 # ==================== DASHBOARD ====================
 

@@ -370,6 +370,14 @@
                                 <i class="bi bi-palette"></i> Diseño de Boleta
                             </a>
                         </li>
+                        {% if current_user.tiene_permiso('usuarios.gestionar') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'admin_usuarios' %}active{% endif %}"
+                                href="{{ url_for('admin_usuarios') }}">
+                                <i class="bi bi-people"></i> Gestión de Equipo
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
             </nav>
