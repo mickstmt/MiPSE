@@ -230,7 +230,7 @@ def registro():
 @login_required
 @permiso_requerido('usuarios.gestionar')
 def admin_usuarios():
-    from models import Role, Rol
+    from models import Rol
     usuarios = Usuario.query.all()
     roles = Rol.query.all()
     return render_template('admin_usuarios.html', usuarios=usuarios, roles=roles)
