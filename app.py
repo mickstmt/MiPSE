@@ -3,7 +3,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from config import Config
 from models import db, Usuario, Cliente, Venta, VentaItem, Categoria, Producto, Variacion, InvoiceTemplate
 from datetime import datetime
-from pdf_service import generar_pdf_html
+from pdf_service import generar_pdf_html, generar_pdf_boleta
 from sunat_service import SUNATService
 from mipse_service import MiPSEService
 from scheduler_service import SchedulerService
@@ -498,8 +498,8 @@ def descargar_pdf(venta_id):
 
     pdf_path = os.path.join(app.config['COMPROBANTES_PATH'], filename)
 
-    # Generar PDF
-    if generar_pdf_html(venta, pdf_path):
+    # Generar PDF (Usando motor estable legacy por ahora según solicitud usuario)
+    if generar_pdf_boleta(venta, pdf_path):
         # Guardar la ruta en la base de datos
         venta.pdf_path = pdf_path
         db.session.commit()
@@ -1342,7 +1342,7 @@ def download_bulk():
                     # Si no tiene ruta guardada O el archivo no existe físicamente
                     if not v.pdf_path or not os.path.exists(v.pdf_path if os.path.isabs(v.pdf_path) else os.path.join(app.root_path, v.pdf_path)):
                         print(f"Generando PDF faltante para venta {v.id}: {filename}")
-                        if generar_pdf_html(v, expected_path):
+                        if generar_pdf_boleta(v, expected_path):
                             v.pdf_path = expected_path
                             db.session.commit()
                             filepath = expected_path
@@ -1590,6 +1590,44 @@ def guardar_diseno():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/diseno/preview')
+@login_required
+def diseno_preview():
+    from models import Venta, VentaItem, Cliente, InvoiceTemplate
+    from pdf_service import generar_pdf_html
+    
+    # 1. Obtener una venta real para el test (o crear un mock si no hay ninguna)
+    venta = Venta.query.order_by(Venta.fecha_emision.desc()).first()
+    
+    if not venta:
+        # Mock básico para pruebas iniciales
+        class MockVenta:
+            def __init__(self):
+                self.id = 0
+                self.numero_completo = "B001-00000000"
+                self.fecha_emision = datetime.now()
+                self.serie = "B001"
+                self.correlativo = "00000000"
+                self.numero_orden = "123456789"
+                self.total = 100.00
+                self.hash_cpe = "ABCDEF123456"
+                self.cliente = Cliente(nombre_completo="CLIENTE DE PRUEBA", numero_documento="77777777", tipo_documento="DNI", direccion="CALLE DE PRUEBA 123")
+                self.items = [
+                    VentaItem(producto_nombre="Producto de Prueba A", cantidad=2, precio_unitario=25, subtotal=50),
+                    VentaItem(producto_nombre="Producto de Prueba B", cantidad=1, precio_unitario=50, subtotal=50)
+                ]
+                self.vendedor = None
+        venta = MockVenta()
+
+    # 2. Generar en un archivo temporal de preview
+    preview_path = os.path.join(app.config['COMPROBANTES_PATH'], "preview_diseno.pdf")
+    
+    if generar_pdf_html(venta, preview_path):
+        return send_file(preview_path, as_attachment=False, cache_timeout=0)
+    else:
+        return "Error al generar la vista previa", 500
 
 
 # Iniciar directorios
