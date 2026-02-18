@@ -1592,6 +1592,46 @@ def guardar_diseno():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/admin/diseno/preview-html')
+@login_required
+def diseno_preview_html():
+    from models import Venta, VentaItem, Cliente, InvoiceTemplate
+    from pdf_service import render_template_html
+    
+    # 1. Obtener una venta real para el test (o crear un mock si no hay ninguna)
+    venta = Venta.query.order_by(Venta.id.desc()).first()
+    
+    if not venta:
+        # Mock básico para pruebas iniciales
+        class MockVenta:
+            def __init__(self):
+                self.id = 0
+                self.numero_completo = "B001-00000000"
+                self.fecha_emision = datetime.now()
+                self.serie = "B001"
+                self.correlativo = "00000000"
+                self.numero_orden = "123456789"
+                self.total = 100.00
+                self.hash_cpe = "ABCDEF123456"
+                self.cliente = Cliente(nombre_completo="CLIENTE DE PRUEBA", numero_documento="77777777", tipo_documento="DNI", direccion="CALLE DE PRUEBA 123")
+                self.items = [
+                    VentaItem(producto_nombre="Producto de Prueba A", cantidad=2, precio_unitario=25, subtotal=50),
+                    VentaItem(producto_nombre="Producto de Prueba B", cantidad=1, precio_unitario=50, subtotal=50)
+                ]
+        venta = MockVenta()
+
+    template = InvoiceTemplate.query.filter_by(es_activo=True).first()
+    if not template:
+        return "No hay plantilla activa", 404
+
+    # 2. Renderizar solo HTML
+    final_html = render_template_html(venta, template.html_content)
+    
+    # Añadimos el CSS dinámicamente para que se vea igual que en el PDF
+    styled_html = f"<style>{template.css_content or ''}</style>{final_html}"
+    
+    return styled_html
+
 @app.route('/admin/diseno/preview')
 @login_required
 def diseno_preview():
