@@ -1621,10 +1621,10 @@ def diseno_preview():
                 self.vendedor = None
         venta = MockVenta()
 
-    # 2. Generar en un archivo temporal de preview
+    # 2. Generar en un archivo temporal de preview (Forzamos HTML para el diseñador)
     preview_path = os.path.join(app.config['COMPROBANTES_PATH'], "preview_diseno.pdf")
     
-    if generar_pdf_html(venta, preview_path):
+    if generar_pdf_html(venta, preview_path, force_html=True):
         return send_file(preview_path, as_attachment=False, max_age=0)
     else:
         return "Error al generar la vista previa", 500

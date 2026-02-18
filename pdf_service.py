@@ -253,15 +253,18 @@ def generar_pdf_boleta(venta, output_path):
         traceback.print_exc()
         return False
 
-def generar_pdf_html(venta, output_path):
+def generar_pdf_html(venta, output_path, force_html=False):
     """
     Genera un PDF de la boleta electrónica usando una plantilla HTML personalizada con WeasyPrint.
+    Si force_html es False, caerá en el diseño antiguo si falla WeasyPrint.
     """
     try:
         try:
             from weasyprint import HTML, CSS
         except ImportError:
             print(" [PDF-HTML] ❌ WeasyPrint no está instalado. Instalado 'weasyprint'?")
+            if force_html:
+                raise ImportError("WeasyPrint no está configurado correctamente en este sistema.")
             return generar_pdf_boleta(venta, output_path)
             
         from models import InvoiceTemplate
