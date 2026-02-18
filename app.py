@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
-from models import db, Usuario, Cliente, Venta, VentaItem, Categoria, Producto, Variacion
+from models import db, Usuario, Cliente, Venta, VentaItem, Categoria, Producto, Variacion, InvoiceTemplate
 from datetime import datetime
 from pdf_service import generar_pdf_html
 from sunat_service import SUNATService
@@ -1523,7 +1523,6 @@ def download_bulk_errors():
 @app.route('/admin/diseno')
 @login_required
 def diseno_editor():
-    from models import InvoiceTemplate
     # Obtener plantilla activa o crear una por defecto
     template = InvoiceTemplate.query.filter_by(es_activo=True).first()
     if not template:
@@ -1574,7 +1573,6 @@ def diseno_editor():
 @app.route('/api/diseno/guardar', methods=['POST'])
 @login_required
 def guardar_diseno():
-    from models import InvoiceTemplate
     try:
         data = request.json
         html = data.get('html')
