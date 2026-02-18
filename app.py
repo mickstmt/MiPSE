@@ -1625,7 +1625,7 @@ def diseno_preview():
     preview_path = os.path.join(app.config['COMPROBANTES_PATH'], "preview_diseno.pdf")
     
     if generar_pdf_html(venta, preview_path):
-        return send_file(preview_path, as_attachment=False, cache_timeout=0)
+        return send_file(preview_path, as_attachment=False, max_age=0)
     else:
         return "Error al generar la vista previa", 500
 
