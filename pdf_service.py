@@ -252,3 +252,72 @@ def generar_pdf_boleta(venta, output_path):
         import traceback
         traceback.print_exc()
         return False
+
+def generar_pdf_html(venta, output_path):
+    """
+    Genera un PDF de la boleta electrónica usando una plantilla HTML personalizada con WeasyPrint.
+    """
+    try:
+        try:
+            from weasyprint import HTML, CSS
+        except ImportError:
+            print(" [PDF-HTML] ❌ WeasyPrint no está instalado. Instalado 'weasyprint'?")
+            return generar_pdf_boleta(venta, output_path)
+            
+        from models import InvoiceTemplate
+        import os
+        
+        # 1. Obtener plantilla activa
+        template = InvoiceTemplate.query.filter_by(es_activo=True).first()
+        if not template:
+            print(" [PDF-HTML] ⚠️ No hay plantilla activa, usando fallback ReportLab")
+            return generar_pdf_boleta(venta, output_path)
+
+        # 2. Preparar datos dinámicos (Variables)
+        empresa_ruc = os.getenv('EMPRESA_RUC', '10433050709')
+        empresa_nombre = os.getenv('EMPRESA_RAZON_SOCIAL', 'IZISTORE PERU')
+        empresa_direccion = os.getenv('EMPRESA_DIRECCION', '')
+        
+        # Generar HTML de la tabla de productos
+        items_html = ""
+        for idx, item in enumerate(venta.items, 1):
+            items_html += f"""
+            <tr>
+                <td style="border: 1px solid black; padding: 5px;">{item.producto_nombre}</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: center;">{float(item.cantidad):.2f}</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: right;">{float(item.precio_unitario):.2f}</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: right;">{float(item.subtotal):.2f}</td>
+            </tr>
+            """
+
+        # Mapeo de variables
+        replacements = {
+            '[[EMPRESA_NOMBRE]]': empresa_nombre,
+            '[[EMPRESA_RUC]]': empresa_ruc,
+            '[[EMPRESA_DIRECCION]]': empresa_direccion,
+            '[[NRO_COMPROBANTE]]': venta.numero_completo,
+            '[[CLIENTE_NOMBRE]]': venta.cliente.nombre_completo,
+            '[[CLIENTE_DOCUMENTO]]': venta.cliente.numero_documento,
+            '[[FECHA_EMISION]]': venta.fecha_emision.strftime("%d/%m/%Y"),
+            '[[TOTAL]]': f"S/ {float(venta.total):.2f}",
+            '[[DETALLE_PRODUCTOS]]': f'<table style="width: 100%; border-collapse: collapse;">{items_html}</table>',
+            '[[TOTAL_LETRAS]]': number_to_words_es(float(venta.total))
+        }
+
+        # Aplicar reemplazos en el HTML
+        final_html = template.html_content
+        for key, value in replacements.items():
+            final_html = final_html.replace(key, str(value))
+
+        # 3. Renderizar PDF
+        # Combinar HTML con CSS de la plantilla
+        HTML(string=final_html).write_pdf(output_path, stylesheets=[CSS(string=template.css_content or "")])
+        
+        print(f" [PDF-HTML] ✅ PDF generado exitosamente en {output_path}")
+        return True
+
+    except Exception as e:
+        print(f" [PDF-HTML] ❌ Error crítico: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False

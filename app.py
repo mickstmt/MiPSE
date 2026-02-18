@@ -3,7 +3,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from config import Config
 from models import db, Usuario, Cliente, Venta, VentaItem, Categoria, Producto, Variacion
 from datetime import datetime
-from pdf_service import generar_pdf_boleta
+from pdf_service import generar_pdf_html
 from sunat_service import SUNATService
 from mipse_service import MiPSEService
 from scheduler_service import SchedulerService
@@ -498,7 +498,7 @@ def descargar_pdf(venta_id):
     pdf_path = os.path.join(app.config['COMPROBANTES_PATH'], filename)
 
     # Generar PDF
-    if generar_pdf_boleta(venta, pdf_path):
+    if generar_pdf_html(venta, pdf_path):
         # Guardar la ruta en la base de datos
         venta.pdf_path = pdf_path
         db.session.commit()
@@ -1341,7 +1341,7 @@ def download_bulk():
                     # Si no tiene ruta guardada O el archivo no existe físicamente
                     if not v.pdf_path or not os.path.exists(v.pdf_path if os.path.isabs(v.pdf_path) else os.path.join(app.root_path, v.pdf_path)):
                         print(f"Generando PDF faltante para venta {v.id}: {filename}")
-                        if generar_pdf_boleta(v, expected_path):
+                        if generar_pdf_html(v, expected_path):
                             v.pdf_path = expected_path
                             db.session.commit()
                             filepath = expected_path
@@ -1514,6 +1514,83 @@ def download_bulk_errors():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+
+# ==================== DISÑADOR VISUAL DE PDF ====================
+
+@app.route('/admin/diseno')
+@login_required
+def diseno_editor():
+    from models import InvoiceTemplate
+    # Obtener plantilla activa o crear una por defecto
+    template = InvoiceTemplate.query.filter_by(es_activo=True).first()
+    if not template:
+        template = InvoiceTemplate.query.first()
+        if not template:
+            # Crear plantilla inicial por defecto (HTML básico)
+            template = InvoiceTemplate(
+                nombre="A4 Estándar",
+                es_activo=True,
+                html_content="""
+                <div style="font-family: Arial; padding: 20px;">
+                    <h1 style="text-align: center;">[[EMPRESA_NOMBRE]]</h1>
+                    <p style="text-align: center;">RUC: [[EMPRESA_RUC]]</p>
+                    <hr>
+                    <div style="border: 1px solid black; padding: 10px; margin: 10px 0;">
+                        <strong>BOLETA DE VENTA ELECTRÓNICA</strong><br>
+                        Nro: [[NRO_COMPROBANTE]]
+                    </div>
+                    <p>Cliente: [[CLIENTE_NOMBRE]]</p>
+                    <p>Fecha: [[FECHA_EMISION]]</p>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <thead>
+                            <tr style="background: #eee;">
+                                <th style="border: 1px solid black; padding: 5px;">DESCRIPCIÓN</th>
+                                <th style="border: 1px solid black; padding: 5px;">CANT.</th>
+                                <th style="border: 1px solid black; padding: 5px;">P. UNIT</th>
+                                <th style="border: 1px solid black; padding: 5px;">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4" style="border: 1px solid black; padding: 20px; text-align: center;">
+                                    [[DETALLE_PRODUCTOS]]
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h3 style="text-align: right;">TOTAL: [[TOTAL]]</h3>
+                </div>
+                """,
+                css_content="body { font-size: 12px; }"
+            )
+            db.session.add(template)
+            db.session.commit()
+    
+    return render_template('diseno_editor.html', template=template)
+
+@app.route('/api/diseno/guardar', methods=['POST'])
+@login_required
+def guardar_diseno():
+    from models import InvoiceTemplate
+    try:
+        data = request.json
+        html = data.get('html')
+        css = data.get('css')
+        
+        template = InvoiceTemplate.query.filter_by(es_activo=True).first()
+        if not template:
+            template = InvoiceTemplate(nombre="Personalizada", es_activo=True)
+            db.session.add(template)
+        
+        template.html_content = html
+        template.css_content = css
+        db.session.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # Iniciar directorios

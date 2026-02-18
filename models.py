@@ -176,3 +176,24 @@ class Variacion(db.Model):
 
     def __repr__(self):
         return f'<Variacion {self.sku} (Prod: {self.producto_id})>'
+
+
+class InvoiceTemplate(db.Model):
+    __tablename__ = 'invoice_templates'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False) # ej: "A4 Estándar", "Ticket 80mm"
+    es_activo = db.Column(db.Boolean, default=False)
+    
+    # Contenido del diseño
+    html_content = db.Column(db.Text, nullable=False)
+    css_content = db.Column(db.Text)
+    
+    # Configuraciones extras en JSON (márgenes, fuentes, etc.)
+    config_json = db.Column(db.JSON, default={})
+    
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_modificacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<InvoiceTemplate {self.nombre}>'
