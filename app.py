@@ -37,7 +37,10 @@ db.init_app(app)
 with app.app_context():
     db_host = app.config.get('SQLALCHEMY_DATABASE_URI').split('@')[-1].split(':')[0]
     print(f"📡 INTENTANDO CONEXIÓN A DB EN: {db_host}")
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"⚠️ Nota sobre DB: {e}")
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
