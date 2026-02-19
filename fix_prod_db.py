@@ -26,11 +26,13 @@ def fix_production_db():
             # Ejecutar limpieza
             print(" -> Limpiando estados inconsistentes...")
             for cmd in cleanup_commands:
+                print(f"    - {cmd}")
                 db.session.execute(text(cmd))
             
             # Ejecutar actualización de columnas
             print(" -> Asegurando columnas de auditoría en 'usuarios'...")
             for cmd in column_commands:
+                print(f"    - {cmd}")
                 db.session.execute(text(cmd))
                 
             db.session.commit()
