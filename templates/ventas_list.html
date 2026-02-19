@@ -3,23 +3,107 @@
 {% block title %}Ventas{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-receipt"></i> Lista de Ventas</h2>
-    <a href="{{ url_for('nueva_venta') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Nueva Venta
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-bold mb-0"><i class="bi bi-receipt me-2 text-primary"></i> Lista de Ventas</h2>
+    <a href="{{ url_for('nueva_venta') }}" class="btn btn-primary rounded-pill px-4">
+        <i class="bi bi-plus-circle me-1"></i> Nueva Venta
     </a>
 </div>
 
-<!-- Checkbox para selección en lote -->
-<div class="card mb-3" id="bulk-actions" style="display: none;">
-    <div class="card-body py-2">
+<!-- ====== PANEL DE BÚSQUEDA Y FILTROS ====== -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('ventas_list') }}" id="search-form">
+            <div class="row g-2 align-items-end">
+
+                <!-- Selector de tipo de filtro -->
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-semibold mb-1">
+                        <i class="bi bi-funnel me-1"></i>Buscar por
+                    </label>
+                    <select class="form-select rounded-pill border-0 bg-light fw-semibold" name="tipo_filtro"
+                        id="tipo_filtro" onchange="toggleSearchMode(this.value)">
+                        <option value="dni" {% if tipo_filtro=='dni' %}selected{% endif %}>📋 DNI / RUC</option>
+                        <option value="nombre" {% if tipo_filtro=='nombre' %}selected{% endif %}>👤 Nombre del cliente
+                        </option>
+                        <option value="comprobante" {% if tipo_filtro=='comprobante' %}selected{% endif %}>🧾 N°
+                            Comprobante</option>
+                        <option value="orden" {% if tipo_filtro=='orden' %}selected{% endif %}>📦 N° Orden</option>
+                        <option value="fecha" {% if tipo_filtro=='fecha' %}selected{% endif %}>📅 Rango de fechas
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Campo de texto (visible para dni, nombre, comprobante, orden) -->
+                <div class="col-12 col-md-5" id="campo-texto" {% if tipo_filtro=='fecha' %}style="display:none" {% endif
+                    %}>
+                    <label class="form-label text-muted small fw-semibold mb-1">Término de búsqueda</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0 text-muted rounded-start-pill">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control border-0 bg-light" name="q" value="{{ q }}"
+                            id="campo-busqueda" placeholder="Escribe aquí..." style="border-radius: 0 50px 50px 0;">
+                    </div>
+                </div>
+
+                <!-- Rango de fechas (visible solo para filtro de fechas) -->
+                <div class="col-12 col-md-5 d-flex gap-2" id="campo-fechas" {% if tipo_filtro !='fecha'
+                    %}style="display:none" {% endif %}>
+                    <div class="flex-fill">
+                        <label class="form-label text-muted small fw-semibold mb-1">Desde</label>
+                        <input type="date" class="form-control border-0 bg-light rounded-pill" name="fecha_desde"
+                            value="{{ fecha_desde }}">
+                    </div>
+                    <div class="flex-fill">
+                        <label class="form-label text-muted small fw-semibold mb-1">Hasta</label>
+                        <input type="date" class="form-control border-0 bg-light rounded-pill" name="fecha_hasta"
+                            value="{{ fecha_hasta }}">
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="col-12 col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 flex-fill fw-semibold">
+                        <i class="bi bi-search me-1"></i> Buscar
+                    </button>
+                    {% if q or fecha_desde or fecha_hasta %}
+                    <a href="{{ url_for('ventas_list') }}" class="btn btn-outline-secondary rounded-pill px-3"
+                        title="Limpiar búsqueda">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Resumen de resultados -->
+            {% if q or fecha_desde or fecha_hasta %}
+            <div class="mt-2 pt-2 border-top d-flex align-items-center gap-2">
+                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 fw-semibold">
+                    <i class="bi bi-list-check me-1"></i> {{ total_resultados }} resultado(s)
+                </span>
+                {% if q %}<span class="text-muted small">Búsqueda: <strong>"{{ q }}"</strong></span>{% endif %}
+                {% if fecha_desde or fecha_hasta %}
+                <span class="text-muted small">
+                    Fechas: <strong>{{ fecha_desde or '...' }}</strong> → <strong>{{ fecha_hasta or 'hoy' }}</strong>
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- ====== ACCIONES EN LOTE ====== -->
+<div class="card border-0 shadow-sm rounded-4 mb-3" id="bulk-actions" style="display: none;">
+    <div class="card-body py-2 px-3">
         <div class="d-flex justify-content-between align-items-center">
-            <span id="selected-count" class="fw-bold text-primary">0 ventas seleccionadas</span>
-            <div>
-                <div class="btn-group btn-group-sm me-2">
-                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"
-                        aria-expanded="false">
-                        <i class="bi bi-download"></i> Descargar
+            <span id="selected-count" class="fw-bold text-primary small"></span>
+            <div class="d-flex gap-2">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-primary rounded-start-pill dropdown-toggle"
+                        data-bs-toggle="dropdown">
+                        <i class="bi bi-download me-1"></i> Descargar
                     </button>
                     <ul class="dropdown-menu shadow border-0">
                         <li><button class="dropdown-item" onclick="descargarLote('pdf')"><i
@@ -30,96 +114,92 @@
                                     class="bi bi-file-check me-2 text-success"></i>CDRs (ZIP)</button></li>
                     </ul>
                 </div>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-primary" onclick="enviarSeleccionadas()">
-                        <i class="bi bi-send"></i> Enviar a SUNAT
-                    </button>
-                    <button class="btn btn-danger" onclick="eliminarSeleccionadas()">
-                        <i class="bi bi-trash"></i> Eliminar seleccionadas
-                    </button>
-                </div>
+                <button class="btn btn-sm btn-primary rounded-pill px-3" onclick="enviarSeleccionadas()">
+                    <i class="bi bi-send me-1"></i> Enviar a SUNAT
+                </button>
+                <button class="btn btn-sm btn-danger rounded-pill px-3" onclick="eliminarSeleccionadas()">
+                    <i class="bi bi-trash me-1"></i> Eliminar
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body">
+<!-- ====== TABLA DE VENTAS ====== -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light bg-opacity-75">
                     <tr>
-                        <th width="30">
+                        <th class="ps-3 py-3" width="30">
                             <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
                         </th>
-                        <th>N° Orden</th>
-                        <th>N° Comprobante</th>
-                        <th>Cliente</th>
-                        <th>Documento</th>
-                        <th>Total</th>
-                        <th>Estado</th>
-                        <th>Fecha</th>
-                        <th>Vendedor</th>
-                        <th>Acciones</th>
+                        <th class="py-3 text-muted small text-uppercase">N° Orden</th>
+                        <th class="py-3 text-muted small text-uppercase">Comprobante</th>
+                        <th class="py-3 text-muted small text-uppercase">Cliente</th>
+                        <th class="py-3 text-muted small text-uppercase">Documento</th>
+                        <th class="py-3 text-muted small text-uppercase">Total</th>
+                        <th class="py-3 text-muted small text-uppercase">Estado</th>
+                        <th class="py-3 text-muted small text-uppercase">Fecha</th>
+                        <th class="py-3 text-muted small text-uppercase">Vendedor</th>
+                        <th class="pe-3 py-3 text-muted small text-uppercase text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for venta in ventas %}
                     <tr>
-                        <td>
+                        <td class="ps-3">
                             <input type="checkbox" class="venta-checkbox" value="{{ venta.id }}"
                                 onchange="updateSelectedCount()">
                         </td>
                         <td>
                             {% if venta.numero_orden %}
-                            <span class="badge bg-info">{{ venta.numero_orden }}</span>
+                            <span class="badge bg-info-subtle text-info rounded-pill px-2">{{ venta.numero_orden
+                                }}</span>
                             {% else %}
-                            <span class="text-muted">-</span>
+                            <span class="text-muted">—</span>
                             {% endif %}
                         </td>
-                        <td><strong>{{ venta.numero_completo }}</strong></td>
+                        <td><span class="fw-bold">{{ venta.numero_completo }}</span></td>
                         <td>{{ venta.cliente.nombre_completo }}</td>
-                        <td>{{ venta.cliente.tipo_documento }}: {{ venta.cliente.numero_documento }}</td>
-                        <td><strong>S/ {{ "%.2f"|format(venta.total) }}</strong></td>
+                        <td><span class="text-muted small">{{ venta.cliente.tipo_documento }}: {{
+                                venta.cliente.numero_documento }}</span></td>
+                        <td><strong class="text-success">S/ {{ "%.2f"|format(venta.total) }}</strong></td>
                         <td>
                             {% if venta.estado == 'BORRADOR' %}
-                            <span class="badge bg-secondary">Borrador</span>
+                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2">Borrador</span>
                             {% elif venta.estado == 'PENDIENTE' %}
-                            <span class="badge bg-warning text-dark">
-                                <i class="bi bi-clock"></i> Pendiente
-                            </span>
+                            <span class="badge bg-warning-subtle text-warning rounded-pill px-2"><i
+                                    class="bi bi-clock me-1"></i>Pendiente</span>
                             {% elif venta.estado == 'ENVIADO' %}
-                            <span class="badge bg-success">
-                                <i class="bi bi-check-circle"></i> Enviado a SUNAT
-                            </span>
+                            <span class="badge bg-success-subtle text-success rounded-pill px-2"><i
+                                    class="bi bi-check-circle me-1"></i>Enviado</span>
                             {% elif venta.estado == 'ACEPTADO' %}
-                            <span class="badge bg-success">Aceptado</span>
+                            <span class="badge bg-success-subtle text-success rounded-pill px-2">Aceptado</span>
                             {% elif venta.estado == 'RECHAZADO' %}
-                            <span class="badge bg-danger">Rechazado</span>
+                            <span class="badge bg-danger-subtle text-danger rounded-pill px-2">Rechazado</span>
                             {% endif %}
                         </td>
-                        <td>{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td>{{ venta.vendedor.nombre }}</td>
-                        <td>
+                        <td class="small text-muted">{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="small">{{ venta.vendedor.nombre }}</td>
+                        <td class="pe-3 text-end">
                             <div class="btn-group btn-group-sm">
-                                <a href="{{ url_for('ver_venta', venta_id=venta.id) }}" class="btn btn-info"
-                                    title="Ver detalles">
+                                <a href="{{ url_for('ver_venta', venta_id=venta.id) }}"
+                                    class="btn btn-outline-info rounded-start-pill" title="Ver detalles">
                                     <i class="bi bi-eye"></i>
                                 </a>
-
-                                <a href="{{ url_for('descargar_pdf', venta_id=venta.id) }}" class="btn btn-primary"
-                                    title="Imprimir Comprobante" target="_blank">
+                                <a href="{{ url_for('descargar_pdf', venta_id=venta.id) }}"
+                                    class="btn btn-outline-primary" title="Imprimir" target="_blank">
                                     <i class="bi bi-printer"></i>
                                 </a>
-
                                 {% if venta.estado == 'PENDIENTE' %}
-                                <button type="button" class="btn btn-primary" title="Enviar a SUNAT"
+                                <button class="btn btn-outline-primary" title="Enviar a SUNAT"
                                     onclick="enviarSunat({{ venta.id }}, '{{ venta.numero_completo }}')">
                                     <i class="bi bi-send"></i>
                                 </button>
                                 {% endif %}
-
-                                <button type="button" class="btn btn-danger" title="Eliminar"
+                                <button class="btn btn-outline-danger rounded-end-pill" title="Eliminar"
                                     onclick="eliminarVenta({{ venta.id }}, '{{ venta.numero_completo }}')">
                                     <i class="bi bi-trash"></i>
                                 </button>
@@ -128,11 +208,22 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center">
-                            <p class="my-4">No hay ventas registradas</p>
-                            <a href="{{ url_for('nueva_venta') }}" class="btn btn-primary">
-                                <i class="bi bi-plus-circle"></i> Crear Primera Venta
-                            </a>
+                        <td colspan="10" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="bi bi-search display-4 d-block mb-3 opacity-30"></i>
+                                {% if q or fecha_desde %}
+                                <p class="fw-semibold">No se encontraron ventas con ese criterio</p>
+                                <a href="{{ url_for('ventas_list') }}"
+                                    class="btn btn-outline-primary rounded-pill px-4 mt-1">
+                                    <i class="bi bi-arrow-left me-1"></i> Ver todas las ventas
+                                </a>
+                                {% else %}
+                                <p class="fw-semibold">No hay ventas registradas aún</p>
+                                <a href="{{ url_for('nueva_venta') }}" class="btn btn-primary rounded-pill px-4 mt-1">
+                                    <i class="bi bi-plus-circle me-1"></i> Crear primera venta
+                                </a>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -142,177 +233,127 @@
     </div>
 </div>
 
+<style>
+    .bg-info-subtle {
+        background-color: rgba(13, 202, 240, 0.12) !important;
+    }
 
+    .bg-success-subtle {
+        background-color: rgba(25, 135, 84, 0.1) !important;
+    }
+
+    .bg-warning-subtle {
+        background-color: rgba(255, 193, 7, 0.12) !important;
+    }
+
+    .bg-danger-subtle {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+
+    .bg-secondary-subtle {
+        background-color: rgba(108, 117, 125, 0.1) !important;
+    }
+
+    .bg-primary-subtle {
+        background-color: rgba(13, 110, 253, 0.1) !important;
+    }
+
+    tr:hover {
+        background-color: rgba(0, 0, 0, 0.012) !important;
+    }
+</style>
 
 <script>
-    // Descargar archivos en lote
+    // ====== LÓGICA DEL BUSCADOR ======
+    function toggleSearchMode(tipo) {
+        const campoTexto = document.getElementById('campo-texto');
+        const campoFechas = document.getElementById('campo-fechas');
+        if (tipo === 'fecha') {
+            campoTexto.style.display = 'none';
+            campoFechas.style.display = 'flex';
+        } else {
+            campoTexto.style.display = '';
+            campoFechas.style.display = 'none';
+            document.getElementById('campo-busqueda').focus();
+        }
+    }
+
+    // Actualizar placeholder según el tipo de filtro
+    document.getElementById('tipo_filtro').addEventListener('change', function () {
+        const placeholders = {
+            dni: 'Ej: 12345678',
+            nombre: 'Ej: Juan Pérez',
+            comprobante: 'Ej: B001-00000123',
+            orden: 'Ej: 100123456',
+        };
+        const input = document.getElementById('campo-busqueda');
+        if (input) input.placeholder = placeholders[this.value] || 'Escribe aquí...';
+    });
+
+    // ====== ACCIONES EN LOTE ======
     function descargarLote(tipo) {
         const checkboxes = document.querySelectorAll('.venta-checkbox:checked');
         const ventaIds = Array.from(checkboxes).map(cb => cb.value);
-
-        if (ventaIds.length === 0) {
-            alert('No hay ventas seleccionadas');
-            return;
-        }
-
-        // Crear form dinámico para descargar el archivo (POST)
+        if (ventaIds.length === 0) { alert('No hay ventas seleccionadas'); return; }
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = "{{ url_for('download_bulk') }}";
-
         const inputIds = document.createElement('input');
-        inputIds.type = 'hidden';
-        inputIds.name = 'venta_ids';
-        inputIds.value = JSON.stringify(ventaIds);
+        inputIds.type = 'hidden'; inputIds.name = 'venta_ids'; inputIds.value = JSON.stringify(ventaIds);
         form.appendChild(inputIds);
-
         const inputTipo = document.createElement('input');
-        inputTipo.type = 'hidden';
-        inputTipo.name = 'tipo_archivo';
-        inputTipo.value = tipo;
+        inputTipo.type = 'hidden'; inputTipo.name = 'tipo_archivo'; inputTipo.value = tipo;
         form.appendChild(inputTipo);
-
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
-
-        // Deseleccionar todo después de iniciar la descarga
-        setTimeout(() => {
-            const checkboxes = document.querySelectorAll('.venta-checkbox');
-            checkboxes.forEach(cb => cb.checked = false);
-            const selectAll = document.getElementById('select-all');
-            if (selectAll) selectAll.checked = false;
-            updateSelectedCount();
-        }, 100);
+        document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+        setTimeout(() => { document.querySelectorAll('.venta-checkbox').forEach(cb => cb.checked = false); updateSelectedCount(); }, 100);
     }
 
-    // Enviar una venta a SUNAT
     function enviarSunat(ventaId, numeroCompleto) {
         if (confirm(`¿Enviar la boleta ${numeroCompleto} a SUNAT?`)) {
-            // Crear formulario y enviarlo
             const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/venta/${ventaId}/enviar-sunat`;
-
-            document.body.appendChild(form);
-            form.submit();
+            form.method = 'POST'; form.action = `/venta/${ventaId}/enviar-sunat`;
+            document.body.appendChild(form); form.submit();
         }
     }
 
-    // Eliminar una venta
     function eliminarVenta(ventaId, numeroCompleto) {
-        if (confirm(`¿Estás seguro de eliminar la venta ${numeroCompleto}?\n\nEsta acción no se puede deshacer.`)) {
-            fetch(`/venta/${ventaId}/eliminar`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Venta eliminada exitosamente');
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error al eliminar la venta');
-                    console.error('Error:', error);
+        if (confirm(`¿Eliminar la venta ${numeroCompleto}?\n\nEsta acción no se puede deshacer.`)) {
+            fetch(`/venta/${ventaId}/eliminar`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } })
+                .then(r => r.json()).then(data => {
+                    if (data.success) { showToast('Eliminado', 'Venta eliminada exitosamente', 'success'); setTimeout(() => location.reload(), 1000); }
+                    else alert('Error: ' + data.message);
                 });
         }
     }
 
-    // Enviar ventas seleccionadas
     function enviarSeleccionadas() {
-        const checkboxes = document.querySelectorAll('.venta-checkbox:checked');
-        const ventaIds = Array.from(checkboxes).map(cb => cb.value);
-
-        if (ventaIds.length === 0) {
-            alert('No hay ventas seleccionadas');
-            return;
-        }
-
+        const ventaIds = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
+        if (ventaIds.length === 0) { alert('No hay ventas seleccionadas'); return; }
         if (confirm(`¿Enviar ${ventaIds.length} venta(s) a SUNAT?`)) {
-            fetch('/ventas/enviar-lote', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ venta_ids: ventaIds })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(`${data.enviadas} venta(s) enviadas exitosamente`);
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error al enviar las ventas');
-                    console.error('Error:', error);
-                });
+            fetch('/ventas/enviar-lote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ venta_ids: ventaIds }) })
+                .then(r => r.json()).then(data => { if (data.success) { alert(`${data.enviadas} enviada(s) exitosamente`); location.reload(); } else alert('Error: ' + data.message); });
         }
     }
 
-    // Eliminar ventas seleccionadas
     function eliminarSeleccionadas() {
-        const checkboxes = document.querySelectorAll('.venta-checkbox:checked');
-        const ventaIds = Array.from(checkboxes).map(cb => cb.value);
-
-        if (ventaIds.length === 0) {
-            alert('No hay ventas seleccionadas');
-            return;
-        }
-
-        if (confirm(`¿Estás seguro de eliminar ${ventaIds.length} venta(s)?\n\nEsta acción no se puede deshacer.`)) {
-            fetch('/ventas/eliminar-lote', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ venta_ids: ventaIds })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(`${data.eliminadas} venta(s) eliminadas exitosamente`);
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error al eliminar las ventas');
-                    console.error('Error:', error);
-                });
+        const ventaIds = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
+        if (ventaIds.length === 0) { alert('No hay ventas seleccionadas'); return; }
+        if (confirm(`¿Eliminar ${ventaIds.length} venta(s)?\n\nEsta acción no se puede deshacer.`)) {
+            fetch('/ventas/eliminar-lote', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ venta_ids: ventaIds }) })
+                .then(r => r.json()).then(data => { if (data.success) { alert(`${data.eliminadas} eliminada(s) exitosamente`); location.reload(); } else alert('Error: ' + data.message); });
         }
     }
 
-    // Actualizar contador de seleccionadas
     function updateSelectedCount() {
-        const checkboxes = document.querySelectorAll('.venta-checkbox:checked');
-        const count = checkboxes.length;
+        const count = document.querySelectorAll('.venta-checkbox:checked').length;
         const bulkActions = document.getElementById('bulk-actions');
         const selectedCount = document.getElementById('selected-count');
-
-        if (count > 0) {
-            bulkActions.style.display = 'block';
-            selectedCount.textContent = `${count} venta(s) seleccionada(s)`;
-        } else {
-            bulkActions.style.display = 'none';
-        }
+        if (count > 0) { bulkActions.style.display = 'block'; selectedCount.textContent = `${count} venta(s) seleccionada(s)`; }
+        else { bulkActions.style.display = 'none'; }
     }
 
-    // Seleccionar/deseleccionar todas
     function toggleSelectAll(checkbox) {
-        const checkboxes = document.querySelectorAll('.venta-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = checkbox.checked;
-        });
+        document.querySelectorAll('.venta-checkbox').forEach(cb => cb.checked = checkbox.checked);
         updateSelectedCount();
     }
 </script>

@@ -456,8 +456,65 @@ def api_registrar_cliente():
 @app.route('/ventas')
 @login_required
 def ventas_list():
-    ventas = Venta.query.order_by(Venta.fecha_emision.desc()).all()
-    return render_template('ventas_list.html', ventas=ventas)
+    from sqlalchemy import or_
+    from datetime import datetime
+
+    tipo_filtro = request.args.get('tipo_filtro', '')
+    q = request.args.get('q', '').strip()
+    fecha_desde = request.args.get('fecha_desde', '')
+    fecha_hasta = request.args.get('fecha_hasta', '')
+
+    query = Venta.query.join(Venta.cliente)
+
+    # Filtros de texto
+    if q:
+        if tipo_filtro == 'dni':
+            query = query.filter(Cliente.numero_documento.ilike(f'%{q}%'))
+        elif tipo_filtro == 'nombre':
+            query = query.filter(
+                or_(
+                    Cliente.nombres.ilike(f'%{q}%'),
+                    Cliente.razon_social.ilike(f'%{q}%'),
+                    Cliente.apellido_paterno.ilike(f'%{q}%')
+                )
+            )
+        elif tipo_filtro == 'comprobante':
+            query = query.filter(Venta.numero_completo.ilike(f'%{q}%'))
+        elif tipo_filtro == 'orden':
+            query = query.filter(Venta.numero_orden.ilike(f'%{q}%'))
+        else:
+            # Búsqueda general
+            query = query.filter(
+                or_(
+                    Cliente.numero_documento.ilike(f'%{q}%'),
+                    Cliente.nombres.ilike(f'%{q}%'),
+                    Cliente.razon_social.ilike(f'%{q}%'),
+                    Venta.numero_completo.ilike(f'%{q}%'),
+                    Venta.numero_orden.ilike(f'%{q}%')
+                )
+            )
+
+    # Filtro por fechas
+    if fecha_desde:
+        try:
+            query = query.filter(Venta.fecha_emision >= datetime.strptime(fecha_desde, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            from datetime import timedelta
+            hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(Venta.fecha_emision < hasta)
+        except ValueError:
+            pass
+
+    ventas = query.order_by(Venta.fecha_emision.desc()).all()
+    total_resultados = len(ventas)
+
+    return render_template('ventas_list.html', ventas=ventas,
+                           q=q, tipo_filtro=tipo_filtro,
+                           fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+                           total_resultados=total_resultados)
 
 @app.route('/nueva-venta', methods=['GET', 'POST'])
 @login_required
