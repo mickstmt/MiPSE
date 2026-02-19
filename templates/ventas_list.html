@@ -132,8 +132,8 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light bg-opacity-75">
                     <tr>
-                        <th class="ps-3 py-3" width="30">
-                            <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
+                        <th class="ps-3 py-3" width="48">
+                            <input type="checkbox" id="select-all" class="big-check" onchange="toggleSelectAll(this)">
                         </th>
                         <th class="py-3 text-muted small text-uppercase">N° Orden</th>
                         <th class="py-3 text-muted small text-uppercase">Comprobante</th>
@@ -149,9 +149,12 @@
                 <tbody>
                     {% for venta in ventas %}
                     <tr>
-                        <td class="ps-3">
-                            <input type="checkbox" class="venta-checkbox" value="{{ venta.id }}"
-                                onchange="updateSelectedCount()">
+                        <td class="p-0" style="cursor:pointer" onclick="toggleRow(this)">
+                            <div class="d-flex align-items-center justify-content-center"
+                                style="width:48px;height:100%;min-height:50px;">
+                                <input type="checkbox" class="venta-checkbox big-check" value="{{ venta.id }}"
+                                    onchange="updateSelectedCount()" onclick="event.stopPropagation()">
+                            </div>
                         </td>
                         <td>
                             {% if venta.numero_orden %}
@@ -265,6 +268,12 @@
 
 <script>
     // ====== LÓGICA DEL BUSCADOR ======
+    function toggleRow(cell) {
+        const cb = cell.querySelector('.venta-checkbox');
+        cb.checked = !cb.checked;
+        updateSelectedCount();
+    }
+
     function toggleSearchMode(tipo) {
         const campoTexto = document.getElementById('campo-texto');
         const campoFechas = document.getElementById('campo-fechas');
