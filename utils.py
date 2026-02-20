@@ -61,3 +61,22 @@ def number_to_words_es(number):
     # Ajuste para "UN" -> "UNO" no es necesario en este contexto de moneda
     
     return f"{palabras} CON {decimal:02d}/100 SOLES"
+
+def extraer_skus_base(sku_woo):
+    """
+    Extrae todos los segmentos numéricos de 7 u 8 dígitos del SKU.
+    Ignora sufijos no numéricos y números cortos (como variaciones locales).
+    Ej: "1003226-1007031-S1046" -> ["1003226", "1007031"]
+    """
+    import re
+    if not sku_woo:
+        return []
+    
+    # Dividir por guiones
+    partes = str(sku_woo).split('-')
+    
+    # Filtrar solo partes que sean exactamente 7 u 8 dígitos numéricos
+    # (El POS usa 7 dígitos 100XXXX, pero pronto llegará a 10XXXXXX)
+    skus_extraidos = [p for p in partes if re.fullmatch(r'\d{7,8}', p)]
+    
+    return skus_extraidos
