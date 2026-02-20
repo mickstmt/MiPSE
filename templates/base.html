@@ -370,6 +370,29 @@
                                 <i class="bi bi-palette"></i> Diseño de Boleta
                             </a>
                         </li>
+
+                        <!-- Menú Reportes -->
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center {% if collapse_reportes %}active{% endif %}"
+                                data-bs-toggle="collapse" href="#menuReportes" role="button"
+                                aria-expanded="{{ 'true' if request.endpoint == 'reporte_ganancias' else 'false' }}"
+                                aria-controls="menuReportes">
+                                <div><i class="bi bi-bar-chart-fill"></i> Reportes</div>
+                                <i class="bi bi-chevron-down ms-auto" style="font-size: 0.8rem;"></i>
+                            </a>
+                            <div class="collapse {% if request.endpoint == 'reporte_ganancias' %}show{% endif %} mt-1"
+                                id="menuReportes">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.endpoint == 'reporte_ganancias' %}active{% endif %} py-1"
+                                            href="{{ url_for('reporte_ganancias') }}">
+                                            <i class="bi bi-graph-up-arrow" style="font-size: 0.9rem;"></i> Ganancias
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+
                         {% if current_user.tiene_permiso('usuarios.gestionar') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin_usuarios' %}active{% endif %}"
