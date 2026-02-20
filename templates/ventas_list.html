@@ -183,9 +183,8 @@
                             {% elif venta.estado == 'RECHAZADO' %}
                             <span class="badge bg-danger-subtle text-danger rounded-pill px-2">Rechazado</span>
                             {% endif %}
-                        </td>
-                        <td class="small text-muted">{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td class="small">{{ venta.vendedor.nombre }}</td>
+                        <td class="small text-muted">{% if venta.fecha_pedido %}{{ venta.fecha_pedido.strftime('%d/%m/%Y
+                            %H:%M') }}{% else %}{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}{% endif %}</td>
                         <td class="pe-3 text-end">
                             <div class="btn-group btn-group-sm">
                                 <a href="{{ url_for('ver_venta', venta_id=venta.id) }}"
