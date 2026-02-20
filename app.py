@@ -524,6 +524,12 @@ def nueva_venta():
             # Obtener datos del formulario
             cliente_id = request.form.get('cliente_id')
             numero_orden = request.form.get('numero_orden')
+            costo_envio_str = request.form.get('costo_envio', '0')
+            try:
+                costo_envio = float(costo_envio_str)
+            except ValueError:
+                costo_envio = 0.0
+                
             items_data = request.form.getlist('items[]')
             
             # Obtener la serie del config
@@ -550,6 +556,7 @@ def nueva_venta():
                 vendedor_id=current_user.id,
                 subtotal=0,
                 total=0,
+                costo_envio=costo_envio,
                 estado='PENDIENTE'
             )
             
@@ -580,8 +587,20 @@ def nueva_venta():
                 )
                 db.session.add(item)
             
-            venta.subtotal = total
-            venta.total = total
+            # Agregar Gasto de Envío como un item adicional para cuadrar en SUNAT
+            if costo_envio > 0:
+                item_envio = VentaItem(
+                    venta_id=venta.id,
+                    producto_nombre='Gasto de Envío',
+                    producto_sku='ENVIO',
+                    cantidad=1,
+                    precio_unitario=costo_envio,
+                    subtotal=costo_envio
+                )
+                db.session.add(item_envio)
+            
+            venta.subtotal = total + costo_envio
+            venta.total = total + costo_envio
             
             db.session.commit()
             
@@ -1187,7 +1206,7 @@ def bulk_upload():
         # Leer Excel
         df = pd.read_excel(io.BytesIO(file.read()), engine='openpyxl')
         
-        # Columnas: B(1)=SKU, E(4)=Order, L(11)=DNI, J(9)=Nombre, AJ(35)=Precio
+        # Columnas: B(1)=SKU, D(3)=Fecha, E(4)=Order, L(11)=DNI, J(9)=Nombre, AJ(35)=Precio
         # Agrupar por Numero de Orden (Columna E)
         orders_dict = {}
         
@@ -1195,6 +1214,16 @@ def bulk_upload():
             try:
                 # Extraer datos usando iloc (índices 0-based)
                 sku_raw = str(row.iloc[1]).strip() if not pd.isna(row.iloc[1]) else ""
+                
+                # Extraer Fecha (Columna D - index 3)
+                fecha_excel = None
+                if not pd.isna(row.iloc[3]):
+                    # Intentar convertir asumiendo que pandas lo lee como timestamp o string
+                    try:
+                        fecha_excel = pd.to_datetime(row.iloc[3]).strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        fecha_excel = str(row.iloc[3]).strip()
+                
                 order_num = str(row.iloc[4]).strip() if not pd.isna(row.iloc[4]) else ""
                 dni = str(row.iloc[11]).strip() if not pd.isna(row.iloc[11]) else "00000000"
                 nombre = str(row.iloc[9]).strip() if not pd.isna(row.iloc[9]) else "CLIENTE VARIOS"
@@ -1218,6 +1247,7 @@ def bulk_upload():
                 if order_num not in orders_dict:
                     orders_dict[order_num] = {
                         'order_num': order_num,
+                        'fecha_pedido': fecha_excel, # Guardamos la fecha
                         'dni': dni,
                         'nombre': nombre,
                         'order_items': [],
@@ -1381,6 +1411,7 @@ def bulk_process():
                     vendedor_id=current_user.id,
                     total=o['total'],
                     subtotal=o['total'],
+                    costo_envio=o.get('costo_envio', 0.0),
                     estado='PENDIENTE'
                 )
                 db.session.add(venta)
@@ -1401,6 +1432,19 @@ def bulk_process():
                         item.variacion_id = match['id']
                     
                     db.session.add(item)
+                    
+                # Agregar Gasto de Envío como un item adicional para cuadrar en SUNAT
+                costo_env = float(o.get('costo_envio', 0.0))
+                if costo_env > 0:
+                    item_envio = VentaItem(
+                        venta_id=venta.id,
+                        producto_nombre='Gasto de Envío',
+                        producto_sku='ENVIO',
+                        cantidad=1,
+                        precio_unitario=costo_env,
+                        subtotal=costo_env
+                    )
+                    db.session.add(item_envio)
                 
                 db.session.commit()
                 
@@ -1815,6 +1859,161 @@ def diseno_preview():
         return send_file(preview_path, as_attachment=False, max_age=0)
     else:
         return "Error al generar la vista previa", 500
+
+from sqlalchemy import func
+
+@app.route('/admin/reporte-ganancias')
+@login_required
+@permiso_requerido('ventas.ver')
+def reporte_ganancias():
+    from models import CostoProducto
+    from utils import extraer_skus_base
+    
+    fecha_inicio = request.args.get('fecha_inicio')
+    fecha_fin = request.args.get('fecha_fin')
+    
+    query = Venta.query.filter(Venta.estado != 'BORRADOR')
+    if fecha_inicio and fecha_fin:
+        # Usar fecha_pedido si existe, si no fallback a fecha_emision
+        fecha_eval = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
+        query = query.filter(fecha_eval.between(f"{fecha_inicio} 00:00:00", f"{fecha_fin} 23:59:59"))
+    
+    ventas = query.order_by(func.coalesce(Venta.fecha_pedido, Venta.fecha_emision).desc()).all()
+    
+    # Cargar todos los costos en memoria para búsqueda rápida O(1)
+    costos_db = CostoProducto.query.all()
+    # PREVENCIÓN BUG: El import de Pandas pudo haber guardado el SKU como int o float flotante "1003226.0".
+    # Lo aseguramos parseándolo limpiamente a string de enteros.
+    mapa_costos = {}
+    for c in costos_db:
+        sku_str = str(c.sku).split('.')[0].strip() # Maneja '1000001', 1000001, y '1000001.0'
+        if sku_str:
+            mapa_costos[sku_str] = float(c.costo)
+    
+    datos_reporte = []
+    totales = {'ingresos': 0.0, 'costos': 0.0, 'ganancia': 0.0}
+    
+    # Tipo de cambio manual (USD a PEN)
+    TIPO_CAMBIO = 3.75
+    
+    for venta in ventas:
+        venta_costo_total = 0.0
+        for item in venta.items:
+            skus_extraidos = extraer_skus_base(item.producto_sku)
+            costo_item_unitario_usd = 0.0
+            
+            # Sumar el costo (en USD) de todos los componentes extraídos del SKU
+            for s in skus_extraidos:
+                costo_item_unitario_usd += mapa_costos.get(s, 0.0)
+            
+            # Convertir a Soles (PEN) y multiplicar por la cantidad vendida
+            costo_item_unitario_pen = costo_item_unitario_usd * TIPO_CAMBIO
+            venta_costo_total += costo_item_unitario_pen * float(item.cantidad)
+            
+        ingreso = float(venta.total)
+        costo_envio = float(venta.costo_envio or 0.0)
+        ganancia = ingreso - venta_costo_total - costo_envio
+        
+        datos_reporte.append({
+            'venta': venta,
+            'fecha_real': venta.fecha_pedido or venta.fecha_emision,
+            'costo_envio': costo_envio,
+            'costo_total': venta_costo_total,
+            'ganancia': ganancia,
+            'margen': (ganancia / ingreso * 100) if ingreso > 0 else 0.0
+        })
+        
+        totales['ingresos'] += ingreso
+        totales['costos'] += venta_costo_total
+        totales['costos_envio'] = totales.get('costos_envio', 0.0) + costo_envio
+        totales['ganancia'] += ganancia
+        
+    totales['margen'] = (totales['ganancia'] / totales['ingresos'] * 100) if totales['ingresos'] > 0 else 0.0
+    
+    return render_template('reporte_ganancias.html', 
+                           datos=datos_reporte, 
+                           totales=totales,
+                           fecha_inicio=fecha_inicio,
+                           fecha_fin=fecha_fin)
+
+
+@app.route('/admin/reporte-ganancias/exportar')
+@login_required
+@permiso_requerido('ventas.ver')
+def reporte_ganancias_exportar():
+    from models import CostoProducto
+    from utils import extraer_skus_base
+    import pandas as pd
+    from io import BytesIO
+    
+    fecha_inicio = request.args.get('fecha_inicio')
+    fecha_fin = request.args.get('fecha_fin')
+    
+    query = Venta.query.filter(Venta.estado != 'BORRADOR')
+    if fecha_inicio and fecha_fin:
+        fecha_eval = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
+        query = query.filter(fecha_eval.between(f"{fecha_inicio} 00:00:00", f"{fecha_fin} 23:59:59"))
+    
+    ventas = query.order_by(func.coalesce(Venta.fecha_pedido, Venta.fecha_emision).desc()).all()
+    
+    costos_db = CostoProducto.query.all()
+    mapa_costos = {}
+    for c in costos_db:
+        sku_str = str(c.sku).split('.')[0].strip()
+        if sku_str:
+            mapa_costos[sku_str] = float(c.costo)
+    
+    TIPO_CAMBIO = 3.75
+    rows = []
+    
+    for venta in ventas:
+        venta_costo_total = 0.0
+        for item in venta.items:
+            skus_extraidos = extraer_skus_base(item.producto_sku)
+            costo_item_unitario_usd = 0.0
+            for s in skus_extraidos:
+                costo_item_unitario_usd += mapa_costos.get(s, 0.0)
+            
+            costo_item_unitario_pen = costo_item_unitario_usd * TIPO_CAMBIO
+            venta_costo_total += costo_item_unitario_pen * float(item.cantidad)
+            
+        ingreso = float(venta.total)
+        costo_envio = float(venta.costo_envio or 0.0)
+        ganancia = ingreso - venta_costo_total - costo_envio
+        margen = (ganancia / ingreso * 100) if ingreso > 0 else 0.0
+        
+        fecha_real = venta.fecha_pedido or venta.fecha_emision
+        
+        rows.append({
+            'Orden': venta.numero_orden or 'N/A',
+            'Comprobante': venta.numero_completo,
+            'Fecha': fecha_real.strftime('%Y-%m-%d %H:%M:%S'),
+            'Ingreso Total (S/)': round(ingreso, 2),
+            'Costo Productos (S/)': round(venta_costo_total, 2),
+            'Gasto de Envío (S/)': round(costo_envio, 2),
+            'Ganancia Bruta (S/)': round(ganancia, 2),
+            'Margen (%)': round(margen, 2)
+        })
+        
+    df = pd.DataFrame(rows)
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Ganancias')
+        
+    output.seek(0)
+    
+    # Nombre del archivo dinámico
+    rango_fecha = "Historico"
+    if fecha_inicio and fecha_fin:
+        rango_fecha = f"{fecha_inicio}_al_{fecha_fin}"
+        
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'Reporte_Ganancias_{rango_fecha}.xlsx'
+    )
 
 
 # Iniciar directorios
