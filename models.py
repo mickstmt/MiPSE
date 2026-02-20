@@ -121,10 +121,12 @@ class Venta(db.Model):
     
     subtotal = db.Column(db.Numeric(10, 2), nullable=False)
     descuento = db.Column(db.Numeric(10, 2), default=0.00)
+    costo_envio = db.Column(db.Numeric(10, 2), default=0.00)
     total = db.Column(db.Numeric(10, 2), nullable=False)
     
     estado = db.Column(db.String(20), default='BORRADOR')
     fecha_emision = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_pedido = db.Column(db.DateTime, nullable=True) # Fecha original de WooCommerce
     fecha_envio_sunat = db.Column(db.DateTime, nullable=True)
     
     xml_path = db.Column(db.String(255))
@@ -247,3 +249,17 @@ class InvoiceTemplate(db.Model):
 
     def __repr__(self):
         return f'<InvoiceTemplate {self.nombre}>'
+
+
+class CostoProducto(db.Model):
+    __tablename__ = 'costos_productos'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(100), index=True)
+    desc = db.Column(db.String(255))
+    colorcode = db.Column(db.String(100))
+    sizecode = db.Column(db.String(100))
+    costo = db.Column(db.Numeric(10, 2), default=0.00)
+
+    def __repr__(self):
+        return f'<CostoProducto {self.sku}>'
