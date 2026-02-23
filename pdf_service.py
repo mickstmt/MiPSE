@@ -139,7 +139,10 @@ def generar_pdf_boleta(venta, output_path):
         ]
         
         detalles_data = [detalles_header]
-        
+
+        tiene_item_envio = any(item.producto_sku == 'ENVIO' for item in venta.items)
+        costo_envio_val = float(venta.costo_envio or 0.0)
+
         for idx, item in enumerate(venta.items, 1):
             detalles_data.append([
                 Paragraph(str(idx), style_norm),
@@ -149,6 +152,19 @@ def generar_pdf_boleta(venta, output_path):
                 Paragraph(f"{float(item.cantidad):.2f}", style_right),
                 Paragraph(f"{float(item.precio_unitario):.2f}", style_right),
                 Paragraph(f"{float(item.subtotal):.2f}", style_right)
+            ])
+
+        # Si el envío no existe como item, agregarlo como línea adicional
+        if costo_envio_val > 0 and not tiene_item_envio:
+            idx_envio = len(venta.items) + 1
+            detalles_data.append([
+                Paragraph(str(idx_envio), style_norm),
+                Paragraph('SRV', style_norm),
+                Paragraph('ENVIO', style_norm),
+                Paragraph('Gasto de Envío', style_norm),
+                Paragraph('1.00', style_right),
+                Paragraph(f'{costo_envio_val:.2f}', style_right),
+                Paragraph(f'{costo_envio_val:.2f}', style_right)
             ])
 
         # Rellenar filas vacías para mantener estructura visual (opcional)
@@ -169,20 +185,21 @@ def generar_pdf_boleta(venta, output_path):
 
         # 4. TOTALES Y SON:
         # ----------------------------------------------------------------------
-        
+
+        # Cálculo de impuestos (asumiendo gravado 18% incluido para boleta)
+        # Si el envío no tenía item propio, sumarlo al total mostrado en el PDF
+        val_total = float(venta.total) + (costo_envio_val if not tiene_item_envio else 0.0)
+        val_subtotal = round(val_total / 1.18, 2)
+        val_igv = round(val_total - val_subtotal, 2)
+
         # Son: [Letras]
-        monto_letras = number_to_words_es(float(venta.total))
+        monto_letras = number_to_words_es(val_total)
         son_tab = Table([[Paragraph(f'SON : {monto_letras}', style_bold)]], colWidths=[190*mm])
         son_tab.setStyle(TableStyle([
             ('BOX', (0,0), (-1,-1), 0.5, colors.black),
             ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ]))
         elements.append(son_tab)
-
-        # Cálculo de impuestos (asumiendo gravado 18% incluido para boleta)
-        val_total = float(venta.total)
-        val_subtotal = round(val_total / 1.18, 2)
-        val_igv = round(val_total - val_subtotal, 2)
 
         totals_data = [
             [Paragraph('GRAVADO', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_subtotal:.2f}', style_right)],

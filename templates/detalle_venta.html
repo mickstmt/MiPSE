@@ -144,6 +144,7 @@
                         <th class="text-end">Subtotal</th>
                     </tr>
                 </thead>
+                {% set tiene_item_envio = venta.items | selectattr('producto_sku', 'equalto', 'ENVIO') | list | length > 0 %}
                 <tbody>
                     {% for item in venta.items %}
                     <tr>
@@ -153,11 +154,22 @@
                         <td class="text-end">S/ {{ "%.2f"|format(item.subtotal) }}</td>
                     </tr>
                     {% endfor %}
+                    {% if venta.costo_envio and venta.costo_envio > 0 and not tiene_item_envio %}
+                    <tr class="text-muted fst-italic">
+                        <td><i class="bi bi-truck me-1"></i>Gasto de Envío</td>
+                        <td class="text-center">1.00</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(venta.costo_envio) }}</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(venta.costo_envio) }}</td>
+                    </tr>
+                    {% endif %}
                 </tbody>
                 <tfoot>
                     <tr class="table-active">
                         <td colspan="3" class="text-end"><strong>TOTAL:</strong></td>
-                        <td class="text-end"><strong>S/ {{ "%.2f"|format(venta.total) }}</strong></td>
+                        <td class="text-end"><strong>S/ {{ "%.2f"|format(
+                            venta.total if tiene_item_envio
+                            else (venta.total + (venta.costo_envio or 0))
+                        ) }}</strong></td>
                     </tr>
                 </tfoot>
             </table>
