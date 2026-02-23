@@ -1937,20 +1937,25 @@ def reporte_ganancias():
     
     for venta in ventas:
         venta_costo_total = 0.0
+        tiene_envio_item = False
         for item in venta.items:
+            if item.producto_sku == 'ENVIO':
+                tiene_envio_item = True
+                continue  # el costo de envío no tiene costo de producto
             skus_extraidos = extraer_skus_base(item.producto_sku)
             costo_item_unitario_usd = 0.0
-            
+
             # Sumar el costo (en USD) de todos los componentes extraídos del SKU
             for s in skus_extraidos:
                 costo_item_unitario_usd += mapa_costos.get(s, 0.0)
-            
+
             # Convertir a Soles (PEN) y multiplicar por la cantidad vendida
             costo_item_unitario_pen = costo_item_unitario_usd * TIPO_CAMBIO
             venta_costo_total += costo_item_unitario_pen * float(item.cantidad)
-            
-        ingreso = float(venta.total)
+
         costo_envio = float(venta.costo_envio or 0.0)
+        # Si el ENVIO ya es un item en venta.total no hay que sumarlo; si es campo separado, sí
+        ingreso = float(venta.total) if tiene_envio_item else float(venta.total) + costo_envio
         ganancia = ingreso - venta_costo_total - costo_envio
         
         datos_reporte.append({
@@ -2120,17 +2125,21 @@ def reporte_ganancias_exportar():
     
     for venta in ventas:
         venta_costo_total = 0.0
+        tiene_envio_item = False
         for item in venta.items:
+            if item.producto_sku == 'ENVIO':
+                tiene_envio_item = True
+                continue
             skus_extraidos = extraer_skus_base(item.producto_sku)
             costo_item_unitario_usd = 0.0
             for s in skus_extraidos:
                 costo_item_unitario_usd += mapa_costos.get(s, 0.0)
-            
+
             costo_item_unitario_pen = costo_item_unitario_usd * TIPO_CAMBIO
             venta_costo_total += costo_item_unitario_pen * float(item.cantidad)
-            
-        ingreso = float(venta.total)
+
         costo_envio = float(venta.costo_envio or 0.0)
+        ingreso = float(venta.total) if tiene_envio_item else float(venta.total) + costo_envio
         ganancia = ingreso - venta_costo_total - costo_envio
         margen = (ganancia / ingreso * 100) if ingreso > 0 else 0.0
         

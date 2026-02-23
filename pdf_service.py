@@ -186,11 +186,18 @@ def generar_pdf_boleta(venta, output_path):
         # 4. TOTALES Y SON:
         # ----------------------------------------------------------------------
 
-        # Cálculo de impuestos (asumiendo gravado 18% incluido para boleta)
-        # Si el envío no tenía item propio, sumarlo al total mostrado en el PDF
-        val_total = float(venta.total) + (costo_envio_val if not tiene_item_envio else 0.0)
-        val_subtotal = round(val_total / 1.18, 2)
-        val_igv = round(val_total - val_subtotal, 2)
+        # IGV aplica solo a productos; el gasto de envío es inafecto.
+        # productos_total = total sin envío (base imponible)
+        if tiene_item_envio:
+            # El ENVIO item ya está en venta.total → restarlo para obtener solo productos
+            productos_total = float(venta.total) - costo_envio_val
+        else:
+            # Envío separado → venta.total ya es solo productos
+            productos_total = float(venta.total)
+
+        val_total    = productos_total + costo_envio_val
+        val_subtotal = round(productos_total / 1.18, 2)
+        val_igv      = round(productos_total - val_subtotal, 2)
 
         # Son: [Letras]
         monto_letras = number_to_words_es(val_total)
@@ -204,15 +211,21 @@ def generar_pdf_boleta(venta, output_path):
         totals_data = [
             [Paragraph('GRAVADO', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_subtotal:.2f}', style_right)],
             [Paragraph('I.G.V 18%', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_igv:.2f}', style_right)],
-            [Paragraph('TOTAL:', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_total:.2f}', style_right)],
         ]
-        
+        if costo_envio_val > 0:
+            totals_data.append([
+                Paragraph('ENVÍO (INAFECTO)', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{costo_envio_val:.2f}', style_right)
+            ])
+        totals_data.append([
+            Paragraph('TOTAL:', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_total:.2f}', style_right)
+        ])
+
         totals_tab = Table(totals_data, colWidths=[130*mm, 15*mm, 45*mm])
         totals_tab.setStyle(TableStyle([
             ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('RIGHTPADDING', (2,0), (2,-1), 5*mm),
-            ('LINEABOVE', (2,2), (2,2), 1, colors.black),
+            ('LINEABOVE', (2,-1), (2,-1), 1, colors.black),  # línea sobre la última fila (TOTAL)
         ]))
         
         # Envolver totales en una tabla con bordes laterales si se quiere match exacto
