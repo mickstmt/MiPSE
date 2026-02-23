@@ -18,6 +18,10 @@ class Config:
     
     SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,   # Verifica la conexión antes de usarla
+        "pool_recycle": 300,     # Recicla conexiones cada 5 minutos
+    }
     
     # WooCommerce (MySQL) - Lectura de productos
     WOO_DB_USER = os.getenv('WOO_DB_USER', 'root')
