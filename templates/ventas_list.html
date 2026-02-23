@@ -186,7 +186,12 @@
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
-                        <td><span class="fw-bold">{{ venta.numero_completo }}</span></td>
+                        <td>
+                            <span class="fw-bold">{{ venta.numero_completo }}</span>
+                            {% if venta.tipo_comprobante == 'NOTA_CREDITO' %}
+                            <span class="badge bg-warning text-dark ms-1" title="Nota de Crédito">NC</span>
+                            {% endif %}
+                        </td>
                         <td>{{ venta.cliente.nombre_completo }}</td>
                         <td><span class="text-muted small">{{ venta.cliente.tipo_documento }}: {{
                                 venta.cliente.numero_documento }}</span></td>

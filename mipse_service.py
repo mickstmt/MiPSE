@@ -343,10 +343,14 @@ class MiPSEService:
         try:
             # Generar nombre del archivo
             # Formato: RUC-TIPO-SERIE-CORRELATIVO
-            # Tipo 03 = Boleta, 01 = Factura
-            tipo_doc = "03"  # Boleta por defecto
-            if venta.serie and venta.serie.startswith('F'):
+            # Tipo 03 = Boleta, 01 = Factura, 07 = Nota de Crédito
+            tipo_comprobante = getattr(venta, 'tipo_comprobante', None)
+            if tipo_comprobante == 'NOTA_CREDITO':
+                tipo_doc = "07"
+            elif venta.serie and venta.serie.startswith('F'):
                 tipo_doc = "01"  # Factura
+            else:
+                tipo_doc = "03"  # Boleta por defecto
 
             # Formatear correlativo con ceros
             correlativo = str(venta.correlativo).zfill(8) if isinstance(venta.correlativo, int) else venta.correlativo
@@ -364,8 +368,12 @@ class MiPSEService:
                 from config import Config
 
                 sunat_service = SUNATService(Config)
-                # generar_xml_boleta retorna (xml_path, xml_string)
-                xml_path, xml_string = sunat_service.generar_xml_boleta(venta)
+                if tipo_doc == "07":
+                    # Nota de Crédito
+                    xml_path, xml_string = sunat_service.generar_xml_nota_credito(venta)
+                else:
+                    # Boleta o Factura
+                    xml_path, xml_string = sunat_service.generar_xml_boleta(venta)
 
                 if not xml_string:
                     return {

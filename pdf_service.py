@@ -78,9 +78,11 @@ def generar_pdf_boleta(venta, output_path):
         ]))
 
         # Columna 3: Recuadro RUC / Comprobante
+        es_nc = getattr(venta, 'tipo_comprobante', 'BOLETA') == 'NOTA_CREDITO'
+        titulo_comprobante = 'NOTA DE CRÉDITO<br/>ELECTRÓNICA' if es_nc else 'BOLETA DE VENTA<br/>ELECTRÓNICA'
         ruc_box_data = [
             [Paragraph(f'RUC: {empresa_ruc}', style_norm)],
-            [Paragraph('BOLETA DE VENTA<br/>ELECTRÓNICA', ParagraphStyle('BoletaTitle', parent=style_norm, fontSize=11, leading=13, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+            [Paragraph(titulo_comprobante, ParagraphStyle('BoletaTitle', parent=style_norm, fontSize=11, leading=13, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
             [Paragraph(f'Nro : {venta.numero_completo}', style_norm)],
         ]
         ruc_box_tab = Table(ruc_box_data, colWidths=[60*mm])
@@ -123,6 +125,25 @@ def generar_pdf_boleta(venta, output_path):
             ('BOTTOMPADDING', (0,0), (-1,-1), 1),
         ]))
         elements.append(info_tab)
+
+        # Para Notas de Crédito: mostrar referencia al documento original y motivo
+        if es_nc and venta.venta_referencia:
+            elements.append(Spacer(1, 5))
+            ref_data = [
+                [Paragraph('DOC. REFERENCIA', style_bold),
+                 Paragraph(f': {venta.venta_referencia.numero_completo}', style_norm),
+                 Paragraph('MOTIVO', style_bold),
+                 Paragraph(f': {venta.motivo_nc_codigo} — {venta.motivo_nc_descripcion}', style_norm)],
+            ]
+            ref_tab = Table(ref_data, colWidths=[30*mm, 80*mm, 25*mm, 55*mm])
+            ref_tab.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('TOPPADDING', (0,0), (-1,-1), 1),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+                ('BACKGROUND', (0,0), (-1,-1), colors.lightyellow),
+            ]))
+            elements.append(ref_tab)
+
         elements.append(Spacer(1, 15))
 
         # 3. TABLA DE DETALLES

@@ -78,6 +78,7 @@ class Config:
     # Para RUC 10 (personas naturales) puede ser: E001, E002, etc.
     # Para RUC 20 (empresas): B001, B002, etc.
     SERIE_BOLETA = os.getenv('SERIE_BOLETA', 'B001')
+    SERIE_NOTA_CREDITO = os.getenv('SERIE_NOTA_CREDITO', 'BC01')
     
     # Carpetas
     COMPROBANTES_PATH = 'comprobantes'

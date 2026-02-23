@@ -675,6 +675,138 @@ def ver_venta(venta_id):
     venta = Venta.query.get_or_404(venta_id)
     return render_template('detalle_venta.html', venta=venta)
 
+# ==================== NOTAS DE CRÉDITO ====================
+
+MOTIVOS_NC = {
+    '01': 'ANULACION DE LA OPERACION',
+    '02': 'ANULACION POR ERROR EN EL RUC',
+    '03': 'CORRECCION POR ERROR EN LA DESCRIPCION',
+    '06': 'DEVOLUCION TOTAL',
+    '07': 'DEVOLUCION POR ITEM',
+    '09': 'DISMINUCION EN EL VALOR',
+}
+
+@app.route('/nueva-nota-credito', methods=['GET', 'POST'])
+@login_required
+def nueva_nota_credito():
+    if request.method == 'GET':
+        venta_id = request.args.get('venta_id', type=int)
+        if not venta_id:
+            flash('Debe indicar la boleta a acreditar.', 'danger')
+            return redirect(url_for('ventas_list'))
+
+        boleta = Venta.query.get_or_404(venta_id)
+
+        if boleta.estado != 'ENVIADO':
+            flash('Solo se pueden emitir notas de crédito sobre boletas ya enviadas a SUNAT.', 'warning')
+            return redirect(url_for('ver_venta', venta_id=venta_id))
+
+        if boleta.tipo_comprobante == 'NOTA_CREDITO':
+            flash('No se puede emitir una nota de crédito sobre otra nota de crédito.', 'warning')
+            return redirect(url_for('ver_venta', venta_id=venta_id))
+
+        if boleta.notas_credito:
+            flash('Ya existe una nota de crédito emitida para esta boleta.', 'warning')
+            return redirect(url_for('ver_venta', venta_id=venta_id))
+
+        return render_template('nueva_nota_credito.html',
+                               boleta=boleta,
+                               motivos=MOTIVOS_NC)
+
+    # POST: crear la Nota de Crédito
+    try:
+        venta_referencia_id = request.form.get('venta_referencia_id', type=int)
+        motivo_codigo = request.form.get('motivo_nc_codigo', '').strip()
+
+        if not venta_referencia_id or motivo_codigo not in MOTIVOS_NC:
+            flash('Datos inválidos. Seleccione una boleta y un motivo válido.', 'danger')
+            return redirect(url_for('ventas_list'))
+
+        boleta = Venta.query.get_or_404(venta_referencia_id)
+
+        if boleta.estado != 'ENVIADO':
+            flash('Solo se pueden emitir notas de crédito sobre boletas ya enviadas a SUNAT.', 'warning')
+            return redirect(url_for('ver_venta', venta_id=venta_referencia_id))
+
+        if boleta.notas_credito:
+            flash('Ya existe una nota de crédito para esta boleta.', 'warning')
+            return redirect(url_for('ver_venta', venta_id=venta_referencia_id))
+
+        serie_nc = app.config.get('SERIE_NOTA_CREDITO', 'BC01')
+
+        # Correlativo por serie NC
+        max_correlativo = db.session.query(db.func.max(db.cast(Venta.correlativo, db.Integer)))\
+            .filter(Venta.serie == serie_nc)\
+            .scalar()
+        correlativo = 1 if not max_correlativo else max_correlativo + 1
+        correlativo_str = str(correlativo).zfill(8)
+        numero_completo = f"{serie_nc}-{correlativo_str}"
+
+        nc = Venta(
+            numero_orden=boleta.numero_orden,
+            serie=serie_nc,
+            correlativo=correlativo_str,
+            numero_completo=numero_completo,
+            cliente_id=boleta.cliente_id,
+            vendedor_id=current_user.id,
+            subtotal=boleta.subtotal,
+            descuento=boleta.descuento,
+            costo_envio=boleta.costo_envio,
+            total=boleta.total,
+            estado='PENDIENTE',
+            tipo_comprobante='NOTA_CREDITO',
+            venta_referencia_id=boleta.id,
+            motivo_nc_codigo=motivo_codigo,
+            motivo_nc_descripcion=MOTIVOS_NC[motivo_codigo],
+        )
+        db.session.add(nc)
+        db.session.flush()
+
+        # Copiar items de la boleta original
+        for item in boleta.items:
+            nc_item = VentaItem(
+                venta_id=nc.id,
+                producto_nombre=item.producto_nombre,
+                producto_sku=item.producto_sku,
+                cantidad=item.cantidad,
+                precio_unitario=item.precio_unitario,
+                subtotal=item.subtotal,
+                variacion_id=item.variacion_id,
+                atributos_json=item.atributos_json,
+            )
+            db.session.add(nc_item)
+
+        db.session.commit()
+
+        # Envío inmediato a SUNAT
+        print(f" [NC-FLOW] Nota de Crédito {numero_completo} creada. Enviando a SUNAT...")
+        try:
+            service = MiPSEService()
+            resultado = service.procesar_venta(nc)
+
+            if resultado['success']:
+                nc.estado = 'ENVIADO'
+                nc.fecha_envio_sunat = datetime.now()
+                nc.mensaje_sunat = resultado.get('message')
+                nc.hash_cpe = resultado.get('hash')
+                nc.external_id = resultado.get('external_id')
+                guardar_archivos_mipse(nc, resultado)
+                db.session.commit()
+                flash(f'Nota de Crédito {numero_completo} emitida y enviada a SUNAT exitosamente.', 'success')
+            else:
+                flash(f'Nota de Crédito {numero_completo} creada localmente, '
+                      f'pero hubo un error con SUNAT: {resultado.get("message")}', 'warning')
+        except Exception as sunat_err:
+            print(f" [NC-FLOW] ❌ Error enviando a SUNAT: {str(sunat_err)}")
+            flash(f'Nota de Crédito {numero_completo} creada, pero el envío a SUNAT falló.', 'info')
+
+        return redirect(url_for('ver_venta', venta_id=nc.id))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al crear la nota de crédito: {str(e)}', 'danger')
+        return redirect(url_for('ventas_list'))
+
 # ==================== GENERAR Y DESCARGAR PDF ====================
 
 @app.route('/venta/<int:venta_id>/pdf')
@@ -714,7 +846,13 @@ def guardar_archivos_mipse(venta, resultado):
         
         nombre_base = resultado.get('nombre_archivo')
         if not nombre_base:
-            tipo_doc = "03" if not (venta.serie and venta.serie.startswith('F')) else "01"
+            tc = getattr(venta, 'tipo_comprobante', None)
+            if tc == 'NOTA_CREDITO':
+                tipo_doc = "07"
+            elif venta.serie and venta.serie.startswith('F'):
+                tipo_doc = "01"
+            else:
+                tipo_doc = "03"
             correlativo = str(venta.correlativo).zfill(8)
             nombre_base = f"{app.config['EMPRESA_RUC']}-{tipo_doc}-{venta.serie}-{correlativo}"
             print(f" [SAVE-FILES] Usando nombre fallback: {nombre_base}")
@@ -759,7 +897,13 @@ def recuperar_documentos_mipse(venta):
     """Intenta recuperar el CDR y XML desde MiPSE si no están localmente"""
     try:
         service = MiPSEService()
-        tipo_doc = "03" if not (venta.serie and venta.serie.startswith('F')) else "01"
+        tc = getattr(venta, 'tipo_comprobante', None)
+        if tc == 'NOTA_CREDITO':
+            tipo_doc = "07"
+        elif venta.serie and venta.serie.startswith('F'):
+            tipo_doc = "01"
+        else:
+            tipo_doc = "03"
         correlativo = str(venta.correlativo).zfill(8)
         nombre_archivo = f"{app.config['EMPRESA_RUC']}-{tipo_doc}-{venta.serie}-{correlativo}"
         

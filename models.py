@@ -136,8 +136,17 @@ class Venta(db.Model):
     mensaje_sunat = db.Column(db.Text)
     codigo_sunat = db.Column(db.String(10))
     external_id = db.Column(db.String(100))  # ID único de MiPSE
-    
+
+    # Notas de Crédito
+    tipo_comprobante = db.Column(db.String(20), default='BOLETA')  # 'BOLETA' | 'NOTA_CREDITO'
+    venta_referencia_id = db.Column(db.Integer, db.ForeignKey('ventas.id'), nullable=True)
+    motivo_nc_codigo = db.Column(db.String(5), nullable=True)       # SUNAT catálogo 09
+    motivo_nc_descripcion = db.Column(db.String(255), nullable=True)
+
     items = db.relationship('VentaItem', backref='venta', lazy=True, cascade='all, delete-orphan')
+    venta_referencia = db.relationship('Venta', remote_side='Venta.id',
+                                       foreign_keys='Venta.venta_referencia_id',
+                                       backref=db.backref('notas_credito', lazy=True))
     
     def __repr__(self):
         return f'<Venta {self.numero_completo}>'

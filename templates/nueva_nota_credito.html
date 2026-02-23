@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Nota de Crédito — {{ boleta.numero_completo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-earmark-minus"></i> Emitir Nota de Crédito</h2>
+    <a href="{{ url_for('ver_venta', venta_id=boleta.id) }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+
+<!-- Boleta referenciada -->
+<div class="card border-primary mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-receipt me-1"></i> Boleta de Referencia</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm mb-0">
+                    <tr>
+                        <th>Comprobante:</th>
+                        <td><strong>{{ boleta.numero_completo }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Cliente:</th>
+                        <td>{{ boleta.cliente.nombre_completo }}</td>
+                    </tr>
+                    <tr>
+                        <th>{{ boleta.cliente.tipo_documento }}:</th>
+                        <td>{{ boleta.cliente.numero_documento }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm mb-0">
+                    <tr>
+                        <th>Fecha emisión:</th>
+                        <td>{{ boleta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
+                    </tr>
+                    {% if boleta.numero_orden %}
+                    <tr>
+                        <th>N° Orden:</th>
+                        <td><span class="badge bg-info">{{ boleta.numero_orden }}</span></td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Total:</th>
+                        <td><strong>S/ {{ "%.2f"|format(boleta.total) }}</strong></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Items que se acreditarán -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i> Ítems a acreditar (crédito total)</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Producto</th>
+                        <th class="text-center">Cantidad</th>
+                        <th class="text-end">P. Unit.</th>
+                        <th class="text-end">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in boleta.items %}
+                    <tr>
+                        <td>{{ item.producto_nombre }}</td>
+                        <td class="text-center">{{ "%.2f"|format(item.cantidad) }}</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(item.precio_unitario) }}</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(item.subtotal) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-warning fw-bold">
+                        <td colspan="3" class="text-end">MONTO A ACREDITAR:</td>
+                        <td class="text-end">S/ {{ "%.2f"|format(boleta.total) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario de motivo -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-pencil-square me-1"></i> Motivo de la Nota de Crédito</h5>
+    </div>
+    <div class="card-body">
+        <form id="form-nc" method="POST" action="{{ url_for('nueva_nota_credito') }}">
+            <input type="hidden" name="venta_referencia_id" value="{{ boleta.id }}">
+
+            <div class="mb-3">
+                <label for="motivo_nc_codigo" class="form-label fw-bold">
+                    Motivo <span class="text-danger">*</span>
+                    <small class="text-muted fw-normal">(SUNAT Catálogo 09)</small>
+                </label>
+                <select name="motivo_nc_codigo" id="motivo_nc_codigo" class="form-select" required>
+                    <option value="" disabled selected>— Seleccione el motivo —</option>
+                    {% for codigo, descripcion in motivos.items() %}
+                    <option value="{{ codigo }}">{{ codigo }} — {{ descripcion }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="alert alert-warning d-flex align-items-start gap-2 mt-3">
+                <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+                <div>
+                    <strong>Atención:</strong> Esta acción emitirá una Nota de Crédito por el
+                    <strong>monto total</strong> de la boleta <strong>{{ boleta.numero_completo }}</strong>
+                    (S/ {{ "%.2f"|format(boleta.total) }}) y la enviará inmediatamente a SUNAT.
+                    Esta operación <strong>no se puede deshacer</strong>.
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button type="button" class="btn btn-danger" id="btn-confirmar">
+                    <i class="bi bi-file-earmark-minus me-1"></i> Emitir Nota de Crédito
+                </button>
+                <a href="{{ url_for('ver_venta', venta_id=boleta.id) }}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('btn-confirmar').addEventListener('click', function () {
+    const motivo = document.getElementById('motivo_nc_codigo');
+    if (!motivo.value) {
+        motivo.focus();
+        motivo.reportValidity();
+        return;
+    }
+    Swal.fire({
+        title: '¿Confirmar emisión?',
+        html: `Se emitirá una Nota de Crédito por <strong>S/ {{ "%.2f"|format(boleta.total) }}</strong>
+               sobre la boleta <strong>{{ boleta.numero_completo }}</strong>.<br><br>
+               Esta acción es irreversible y se enviará a SUNAT de inmediato.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, emitir NC',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('form-nc').submit();
+        }
+    });
+});
+</script>
+{% endblock %}

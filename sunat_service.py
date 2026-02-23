@@ -349,6 +349,234 @@ class SUNATService:
             print(f"Error generando XML: {str(e)}")
             raise
 
+    def generar_xml_nota_credito(self, venta):
+        """
+        Genera el XML de la Nota de Crédito (tipo 07) según UBL 2.1 de SUNAT.
+        La venta debe tener venta_referencia (boleta original), motivo_nc_codigo
+        y motivo_nc_descripcion ya establecidos.
+        """
+        try:
+            cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+            cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+            ext = "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
+
+            nsmap = {
+                None: "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2",
+                'cac': cac,
+                'cbc': cbc,
+                'ccts': "urn:un:unece:uncefact:documentation:2",
+                'ds': "http://www.w3.org/2000/09/xmldsig#",
+                'ext': ext,
+                'qdt': "urn:oasis:names:specification:ubl:schema:xsd:QualifiedDatatypes-2",
+                'udt': "urn:un:unece:uncefact:data:specification:UnqualifiedDataTypesSchemaModule:2",
+            }
+
+            root = etree.Element("CreditNote", nsmap=nsmap)
+
+            # UBLExtensions (para la firma digital)
+            ublext = etree.SubElement(root, f"{{{ext}}}UBLExtensions")
+            ublext_elem = etree.SubElement(ublext, f"{{{ext}}}UBLExtension")
+            etree.SubElement(ublext_elem, f"{{{ext}}}ExtensionContent")
+
+            etree.SubElement(root, f"{{{cbc}}}UBLVersionID").text = "2.1"
+            etree.SubElement(root, f"{{{cbc}}}CustomizationID").text = "2.0"
+            etree.SubElement(root, f"{{{cbc}}}ID").text = venta.numero_completo
+
+            fecha_emision = venta.fecha_emision.strftime("%Y-%m-%d")
+            hora_emision  = venta.fecha_emision.strftime("%H:%M:%S")
+            etree.SubElement(root, f"{{{cbc}}}IssueDate").text = fecha_emision
+            etree.SubElement(root, f"{{{cbc}}}IssueTime").text = hora_emision
+
+            # Moneda
+            currency_code = etree.SubElement(root, f"{{{cbc}}}DocumentCurrencyCode")
+            currency_code.set("listAgencyName", "United Nations Economic Commission for Europe")
+            currency_code.set("listID", "ISO 4217 Alpha")
+            currency_code.set("listName", "Currency")
+            currency_code.text = "PEN"
+
+            # === DISCREPANCY RESPONSE (motivo de la NC) ===
+            boleta_ref = venta.venta_referencia
+            discrepancy = etree.SubElement(root, f"{{{cac}}}DiscrepancyResponse")
+            etree.SubElement(discrepancy, f"{{{cbc}}}ReferenceID").text = boleta_ref.numero_completo
+            etree.SubElement(discrepancy, f"{{{cbc}}}ResponseCode").text = venta.motivo_nc_codigo
+            etree.SubElement(discrepancy, f"{{{cbc}}}Description").text = venta.motivo_nc_descripcion
+
+            # === BILLING REFERENCE (documento original) ===
+            billing_ref = etree.SubElement(root, f"{{{cac}}}BillingReference")
+            inv_doc_ref = etree.SubElement(billing_ref, f"{{{cac}}}InvoiceDocumentReference")
+            etree.SubElement(inv_doc_ref, f"{{{cbc}}}ID").text = boleta_ref.numero_completo
+            # Tipo de documento: 03 = Boleta, 01 = Factura
+            tipo_boleta = "01" if (boleta_ref.serie and boleta_ref.serie.startswith('F')) else "03"
+            etree.SubElement(inv_doc_ref, f"{{{cbc}}}DocumentTypeCode").text = tipo_boleta
+
+            # === SIGNATURE ===
+            signature = etree.SubElement(root, f"{{{cac}}}Signature")
+            etree.SubElement(signature, f"{{{cbc}}}ID").text = self.ruc
+            etree.SubElement(signature, f"{{{cbc}}}Note").text = "Elaborado por Sistema de Emision Electronica Facturador SUNAT (SEE-SFS) 1.4"
+            sig_party = etree.SubElement(signature, f"{{{cac}}}SignatoryParty")
+            party_id = etree.SubElement(sig_party, f"{{{cac}}}PartyIdentification")
+            etree.SubElement(party_id, f"{{{cbc}}}ID").text = self.ruc
+            party_name = etree.SubElement(sig_party, f"{{{cac}}}PartyName")
+            etree.SubElement(party_name, f"{{{cbc}}}Name").text = self.razon_social
+            dig_sig = etree.SubElement(signature, f"{{{cac}}}DigitalSignatureAttachment")
+            ext_ref = etree.SubElement(dig_sig, f"{{{cac}}}ExternalReference")
+            etree.SubElement(ext_ref, f"{{{cbc}}}URI").text = "SIGN"
+
+            # === SUPPLIER ===
+            supplier = etree.SubElement(root, f"{{{cac}}}AccountingSupplierParty")
+            supplier_party = etree.SubElement(supplier, f"{{{cac}}}Party")
+            party_ident = etree.SubElement(supplier_party, f"{{{cac}}}PartyIdentification")
+            id_elem = etree.SubElement(party_ident, f"{{{cbc}}}ID")
+            id_elem.set("schemeAgencyName", "PE:SUNAT")
+            id_elem.set("schemeID", "6")
+            id_elem.set("schemeName", "Documento de Identidad")
+            id_elem.set("schemeURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06")
+            id_elem.text = self.ruc
+            party_name = etree.SubElement(supplier_party, f"{{{cac}}}PartyName")
+            etree.SubElement(party_name, f"{{{cbc}}}Name").text = self.config.EMPRESA_NOMBRE_COMERCIAL
+            postal_addr = etree.SubElement(supplier_party, f"{{{cac}}}PostalAddress")
+            etree.SubElement(postal_addr, f"{{{cbc}}}ID").text = self.ubigeo
+            etree.SubElement(postal_addr, f"{{{cbc}}}StreetName").text = self.direccion
+            country = etree.SubElement(postal_addr, f"{{{cac}}}Country")
+            etree.SubElement(country, f"{{{cbc}}}IdentificationCode").text = "PE"
+            party_legal = etree.SubElement(supplier_party, f"{{{cac}}}PartyLegalEntity")
+            etree.SubElement(party_legal, f"{{{cbc}}}RegistrationName").text = self.razon_social
+
+            # === CUSTOMER ===
+            customer = etree.SubElement(root, f"{{{cac}}}AccountingCustomerParty")
+            customer_party = etree.SubElement(customer, f"{{{cac}}}Party")
+            party_ident = etree.SubElement(customer_party, f"{{{cac}}}PartyIdentification")
+            id_elem = etree.SubElement(party_ident, f"{{{cbc}}}ID")
+            doc_map = {'DNI': '1', 'CE': '4', 'RUC': '6', 'PASAPORTE': '7'}
+            tipo_doc_cliente = doc_map.get(venta.cliente.tipo_documento, '1')
+            id_elem.set("schemeAgencyName", "PE:SUNAT")
+            id_elem.set("schemeID", tipo_doc_cliente)
+            id_elem.set("schemeName", "Documento de Identidad")
+            id_elem.set("schemeURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06")
+            id_elem.text = venta.cliente.numero_documento
+            party_legal = etree.SubElement(customer_party, f"{{{cac}}}PartyLegalEntity")
+            etree.SubElement(party_legal, f"{{{cbc}}}RegistrationName").text = venta.cliente.nombre_completo
+
+            # === TAX TOTAL (IGV) ===
+            val_total = float(venta.total)
+            subtotal  = val_total / 1.18
+            igv       = val_total - subtotal
+
+            tax_total = etree.SubElement(root, f"{{{cac}}}TaxTotal")
+            tax_amount = etree.SubElement(tax_total, f"{{{cbc}}}TaxAmount")
+            tax_amount.set("currencyID", "PEN")
+            tax_amount.text = f"{igv:.2f}"
+            tax_subtotal = etree.SubElement(tax_total, f"{{{cac}}}TaxSubtotal")
+            taxable_amount = etree.SubElement(tax_subtotal, f"{{{cbc}}}TaxableAmount")
+            taxable_amount.set("currencyID", "PEN")
+            taxable_amount.text = f"{subtotal:.2f}"
+            tax_amount2 = etree.SubElement(tax_subtotal, f"{{{cbc}}}TaxAmount")
+            tax_amount2.set("currencyID", "PEN")
+            tax_amount2.text = f"{igv:.2f}"
+            tax_category = etree.SubElement(tax_subtotal, f"{{{cac}}}TaxCategory")
+            tax_scheme = etree.SubElement(tax_category, f"{{{cac}}}TaxScheme")
+            tax_id = etree.SubElement(tax_scheme, f"{{{cbc}}}ID")
+            tax_id.set("schemeAgencyName", "PE:SUNAT")
+            tax_id.set("schemeID", "UN/ECE 5153")
+            tax_id.set("schemeName", "Codigo de tributos")
+            tax_id.text = "1000"
+            etree.SubElement(tax_scheme, f"{{{cbc}}}Name").text = "IGV"
+            etree.SubElement(tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "VAT"
+
+            # === LEGAL MONETARY TOTAL ===
+            monetary_total = etree.SubElement(root, f"{{{cac}}}LegalMonetaryTotal")
+            line_ext = etree.SubElement(monetary_total, f"{{{cbc}}}LineExtensionAmount")
+            line_ext.set("currencyID", "PEN")
+            line_ext.text = f"{subtotal:.2f}"
+            tax_inc = etree.SubElement(monetary_total, f"{{{cbc}}}TaxInclusiveAmount")
+            tax_inc.set("currencyID", "PEN")
+            tax_inc.text = f"{val_total:.2f}"
+            payable = etree.SubElement(monetary_total, f"{{{cbc}}}PayableAmount")
+            payable.set("currencyID", "PEN")
+            payable.text = f"{val_total:.2f}"
+
+            # === CREDIT NOTE LINES ===
+            for idx, item in enumerate(venta.items, start=1):
+                cn_line = etree.SubElement(root, f"{{{cac}}}CreditNoteLine")
+                etree.SubElement(cn_line, f"{{{cbc}}}ID").text = str(idx)
+
+                credited_qty = etree.SubElement(cn_line, f"{{{cbc}}}CreditedQuantity")
+                credited_qty.set("unitCode", "NIU")
+                credited_qty.set("unitCodeListAgencyName", "United Nations Economic Commission for Europe")
+                credited_qty.set("unitCodeListID", "UN/ECE rec 20")
+                credited_qty.text = f"{float(item.cantidad):.2f}"
+
+                item_subtotal_sin_igv = float(item.subtotal) / 1.18
+                line_ext_amt = etree.SubElement(cn_line, f"{{{cbc}}}LineExtensionAmount")
+                line_ext_amt.set("currencyID", "PEN")
+                line_ext_amt.text = f"{item_subtotal_sin_igv:.2f}"
+
+                # Precio unitario con IGV (precio de venta)
+                pricing_ref = etree.SubElement(cn_line, f"{{{cac}}}PricingReference")
+                alt_cond = etree.SubElement(pricing_ref, f"{{{cac}}}AlternativeConditionPrice")
+                price_amt = etree.SubElement(alt_cond, f"{{{cbc}}}PriceAmount")
+                price_amt.set("currencyID", "PEN")
+                price_amt.text = f"{float(item.precio_unitario):.2f}"
+                price_type = etree.SubElement(alt_cond, f"{{{cbc}}}PriceTypeCode")
+                price_type.set("listAgencyName", "PE:SUNAT")
+                price_type.set("listName", "Tipo de Precio")
+                price_type.set("listURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16")
+                price_type.text = "01"
+
+                # IGV del item
+                item_igv = item_subtotal_sin_igv * 0.18
+                item_tax_total = etree.SubElement(cn_line, f"{{{cac}}}TaxTotal")
+                item_tax_amt = etree.SubElement(item_tax_total, f"{{{cbc}}}TaxAmount")
+                item_tax_amt.set("currencyID", "PEN")
+                item_tax_amt.text = f"{item_igv:.2f}"
+                item_tax_sub = etree.SubElement(item_tax_total, f"{{{cac}}}TaxSubtotal")
+                item_taxable = etree.SubElement(item_tax_sub, f"{{{cbc}}}TaxableAmount")
+                item_taxable.set("currencyID", "PEN")
+                item_taxable.text = f"{item_subtotal_sin_igv:.2f}"
+                item_tax_amt2 = etree.SubElement(item_tax_sub, f"{{{cbc}}}TaxAmount")
+                item_tax_amt2.set("currencyID", "PEN")
+                item_tax_amt2.text = f"{item_igv:.2f}"
+                item_tax_cat = etree.SubElement(item_tax_sub, f"{{{cac}}}TaxCategory")
+                etree.SubElement(item_tax_cat, f"{{{cbc}}}Percent").text = "18.00"
+                tex_exc = etree.SubElement(item_tax_cat, f"{{{cbc}}}TaxExemptionReasonCode")
+                tex_exc.set("listAgencyName", "PE:SUNAT")
+                tex_exc.set("listName", "Afectacion del IGV")
+                tex_exc.set("listURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07")
+                tex_exc.text = "10"
+                item_tax_scheme = etree.SubElement(item_tax_cat, f"{{{cac}}}TaxScheme")
+                ts_id = etree.SubElement(item_tax_scheme, f"{{{cbc}}}ID")
+                ts_id.set("schemeAgencyName", "PE:SUNAT")
+                ts_id.set("schemeID", "UN/ECE 5153")
+                ts_id.set("schemeName", "Codigo de tributos")
+                ts_id.text = "1000"
+                etree.SubElement(item_tax_scheme, f"{{{cbc}}}Name").text = "IGV"
+                etree.SubElement(item_tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "VAT"
+
+                # Descripción del item
+                item_elem = etree.SubElement(cn_line, f"{{{cac}}}Item")
+                item_desc = etree.SubElement(item_elem, f"{{{cbc}}}Description")
+                item_desc.text = str(item.producto_nombre).split('\t')[0].strip()
+
+                # Precio unitario sin IGV
+                price_elem = etree.SubElement(cn_line, f"{{{cac}}}Price")
+                price_unit = etree.SubElement(price_elem, f"{{{cbc}}}PriceAmount")
+                price_unit.set("currencyID", "PEN")
+                price_unit.text = f"{float(item.precio_unitario) / 1.18:.2f}"
+
+            # Serializar
+            xml_string = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='ISO-8859-1')
+
+            xml_filename = f"{self.ruc}-07-{venta.numero_completo}.xml"
+            xml_path = os.path.join("xml_generados", xml_filename)
+            with open(xml_path, 'wb') as f:
+                f.write(xml_string)
+
+            return xml_path, xml_string
+
+        except Exception as e:
+            print(f"Error generando XML Nota de Crédito: {str(e)}")
+            raise
+
     def firmar_xml(self, xml_path, xml_string):
         """
         Firma digitalmente el XML con el certificado .pfx usando signxml
