@@ -1961,6 +1961,7 @@ def reporte_ganancias():
         datos_reporte.append({
             'venta': venta,
             'fecha_real': venta.fecha_pedido or venta.fecha_emision,
+            'ingreso': ingreso,
             'costo_envio': costo_envio,
             'costo_total': venta_costo_total,
             'ganancia': ganancia,
@@ -1981,7 +1982,7 @@ def reporte_ganancias():
     sort_key_map = {
         'orden':      lambda x: x['venta'].numero_orden or '',
         'fecha':      lambda x: x['fecha_real'] or dt.min,
-        'ingreso':    lambda x: float(x['venta'].total),
+        'ingreso':    lambda x: x['ingreso'],
         'costo_total':lambda x: x['costo_total'],
         'costo_envio':lambda x: x['costo_envio'],
         'ganancia':   lambda x: x['ganancia'],

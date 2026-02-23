@@ -219,7 +219,7 @@
                         {{ fila.venta.numero_completo }}
                     </td>
                     <td class="text-muted small">{{ fila.fecha_real.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td class="text-end fw-semibold text-primary">S/ {{ "%.2f"|format(fila.venta.total) }}</td>
+                    <td class="text-end fw-semibold text-primary">S/ {{ "%.2f"|format(fila.ingreso) }}</td>
                     <td class="text-end text-danger">S/ {{ "%.2f"|format(fila.costo_total) }}</td>
                     <td class="text-end text-warning-emphasis">S/ {{ "%.2f"|format(fila.costo_envio) }}</td>
                     <td class="text-end fw-bold text-success">S/ {{ "%.2f"|format(fila.ganancia) }}</td>
