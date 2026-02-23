@@ -460,7 +460,7 @@ def api_registrar_cliente():
 @app.route('/ventas')
 @login_required
 def ventas_list():
-    from sqlalchemy import or_
+    from sqlalchemy import or_, func
     from datetime import datetime
 
     tipo_filtro = request.args.get('tipo_filtro', '')
@@ -501,34 +501,37 @@ def ventas_list():
                 )
             )
 
-    # Filtro por fechas
+    # Filtro por fechas — usa fecha_pedido cuando existe, si no fecha_emision
+    fecha_real = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
     if fecha_desde:
         try:
-            query = query.filter(Venta.fecha_emision >= datetime.strptime(fecha_desde, '%Y-%m-%d'))
+            query = query.filter(fecha_real >= datetime.strptime(fecha_desde, '%Y-%m-%d'))
         except ValueError:
             pass
     if fecha_hasta:
         try:
             from datetime import timedelta
             hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d') + timedelta(days=1)
-            query = query.filter(Venta.fecha_emision < hasta)
+            query = query.filter(fecha_real < hasta)
         except ValueError:
             pass
 
     # Ordenamiento dinámico
     sort_map = {
-        'orden': Venta.numero_orden,
+        'orden':       Venta.numero_orden,
         'comprobante': Venta.numero_completo,
-        'cliente': Cliente.nombres,
-        'total': Venta.total,
-        'estado': Venta.estado,
-        'fecha': Venta.fecha_emision,
+        'cliente':     Cliente.nombres,
+        'total':       Venta.total,
+        'estado':      Venta.estado,
     }
-    if sort and sort in sort_map:
+    if sort == 'fecha':
+        fecha_col = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
+        query = query.order_by(fecha_col.asc() if sort_dir == 'asc' else fecha_col.desc())
+    elif sort and sort in sort_map:
         sort_col = sort_map[sort]
         query = query.order_by(sort_col.asc() if sort_dir == 'asc' else sort_col.desc())
     else:
-        query = query.order_by(Venta.fecha_emision.desc())
+        query = query.order_by(func.coalesce(Venta.fecha_pedido, Venta.fecha_emision).desc())
 
     pagination = query.paginate(page=page, per_page=25, error_out=False)
     ventas = pagination.items
@@ -1427,6 +1430,14 @@ def bulk_process():
                 correlativo_str = str(correlativo).zfill(8)
                 numero_completo = f"{serie}-{correlativo_str}"
                 
+                from datetime import datetime as _dt
+                fecha_ped = None
+                if o.get('fecha_pedido'):
+                    try:
+                        fecha_ped = _dt.strptime(o['fecha_pedido'], '%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        pass
+
                 venta = Venta(
                     serie=serie,
                     correlativo=correlativo_str,
@@ -1437,6 +1448,7 @@ def bulk_process():
                     total=o['total'],
                     subtotal=o['total'],
                     costo_envio=o.get('costo_envio', 0.0),
+                    fecha_pedido=fecha_ped,
                     estado='PENDIENTE'
                 )
                 db.session.add(venta)
