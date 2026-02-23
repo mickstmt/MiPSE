@@ -1868,9 +1868,11 @@ from sqlalchemy import func
 def reporte_ganancias():
     from models import CostoProducto
     from utils import extraer_skus_base
-    
-    fecha_inicio = request.args.get('fecha_inicio')
-    fecha_fin = request.args.get('fecha_fin')
+    from datetime import date
+
+    hoy = date.today()
+    fecha_inicio = request.args.get('fecha_inicio') or hoy.replace(day=1).strftime('%Y-%m-%d')
+    fecha_fin = request.args.get('fecha_fin') or hoy.strftime('%Y-%m-%d')
     
     query = Venta.query.filter(Venta.estado != 'BORRADOR')
     if fecha_inicio and fecha_fin:
