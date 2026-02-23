@@ -107,7 +107,11 @@ def health_check():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return Usuario.query.get(int(user_id))
+    try:
+        return Usuario.query.get(int(user_id))
+    except Exception:
+        db.session.rollback()
+        return None
 
 # ==================== DECORADORES DE SEGURIDAD ====================
 
