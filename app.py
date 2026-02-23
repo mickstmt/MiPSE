@@ -467,7 +467,7 @@ def ventas_list():
     q = request.args.get('q', '').strip()
     fecha_desde = request.args.get('fecha_desde', '')
     fecha_hasta = request.args.get('fecha_hasta', '')
-    sort = request.args.get('sort', 'fecha')
+    sort = request.args.get('sort', '')
     sort_dir = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
 
@@ -524,8 +524,11 @@ def ventas_list():
         'estado': Venta.estado,
         'fecha': Venta.fecha_emision,
     }
-    sort_col = sort_map.get(sort, Venta.fecha_emision)
-    query = query.order_by(sort_col.asc() if sort_dir == 'asc' else sort_col.desc())
+    if sort and sort in sort_map:
+        sort_col = sort_map[sort]
+        query = query.order_by(sort_col.asc() if sort_dir == 'asc' else sort_col.desc())
+    else:
+        query = query.order_by(Venta.fecha_emision.desc())
 
     pagination = query.paginate(page=page, per_page=25, error_out=False)
     ventas = pagination.items
@@ -1956,7 +1959,7 @@ def reporte_ganancias():
 
     # Ordenamiento dinámico
     from datetime import datetime as dt
-    sort = request.args.get('sort', 'fecha')
+    sort = request.args.get('sort', '')
     sort_dir = request.args.get('dir', 'desc')
     sort_key_map = {
         'orden':      lambda x: x['venta'].numero_orden or '',
@@ -1967,7 +1970,10 @@ def reporte_ganancias():
         'ganancia':   lambda x: x['ganancia'],
         'margen':     lambda x: x['margen'],
     }
-    datos_reporte.sort(key=sort_key_map.get(sort, sort_key_map['fecha']), reverse=(sort_dir == 'desc'))
+    if sort and sort in sort_key_map:
+        datos_reporte.sort(key=sort_key_map[sort], reverse=(sort_dir == 'desc'))
+    else:
+        datos_reporte.sort(key=sort_key_map['fecha'], reverse=True)
 
     # Paginación manual
     per_page = 25

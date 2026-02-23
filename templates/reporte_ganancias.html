@@ -116,17 +116,24 @@
 </div>
 
 {% macro sort_th_r(label, col, extra_class='') %}
-{% set new_dir = 'asc' if (sort == col and sort_dir == 'desc') else 'desc' %}
-{% set is_active = sort == col %}
+{% if sort == col and sort_dir == 'desc' %}
+    {% set next_href = url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=col, dir='asc', page=1) %}
+    {% set is_active = true %}
+    {% set icon_class = 'bi-arrow-down' %}
+{% elif sort == col and sort_dir == 'asc' %}
+    {% set next_href = url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, page=1) %}
+    {% set is_active = true %}
+    {% set icon_class = 'bi-arrow-up' %}
+{% else %}
+    {% set next_href = url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=col, dir='desc', page=1) %}
+    {% set is_active = false %}
+    {% set icon_class = 'bi-arrow-down-up' %}
+{% endif %}
 <th class="py-3 {{ extra_class }}">
-    <a href="{{ url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=col, dir=new_dir, page=1) }}"
+    <a href="{{ next_href }}"
        class="sort-link-r {{ 'text-primary fw-semibold' if is_active else 'text-muted' }}">
         {{ label }}
-        {% if is_active %}
-            <i class="bi bi-arrow-{{ 'up' if sort_dir == 'asc' else 'down' }} ms-1"></i>
-        {% else %}
-            <i class="bi bi-arrow-down-up ms-1 opacity-25"></i>
-        {% endif %}
+        <i class="bi {{ icon_class }} ms-1 {{ '' if is_active else 'opacity-25' }}"></i>
     </a>
 </th>
 {% endmacro %}
@@ -284,4 +291,20 @@
         color: #0d6efd;
     }
 </style>
+
+<script>
+    // ====== RESET SORT ON BROWSER RELOAD ======
+    (function () {
+        const nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('sort') || url.searchParams.has('dir')) {
+                url.searchParams.delete('sort');
+                url.searchParams.delete('dir');
+                url.searchParams.delete('page');
+                window.location.replace(url.toString());
+            }
+        }
+    })();
+</script>
 {% endblock %}
