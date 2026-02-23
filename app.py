@@ -1992,6 +1992,91 @@ def reporte_ganancias():
                            page=page, total_pages=total_pages, total_items=total_items)
 
 
+@app.route('/admin/reporte-ganancias/importar-pedidos', methods=['POST'])
+@login_required
+@permiso_requerido('ventas.ver')
+def reporte_ganancias_importar_pedidos():
+    import re
+    import pandas as pd
+    from io import BytesIO
+
+    if 'file' not in request.files or request.files['file'].filename == '':
+        flash('No se seleccionó ningún archivo.', 'error')
+        return redirect(url_for('reporte_ganancias'))
+
+    archivo = request.files['file']
+    if not archivo.filename.lower().endswith(('.xlsx', '.xls')):
+        flash('El archivo debe ser Excel (.xlsx o .xls).', 'error')
+        return redirect(url_for('reporte_ganancias'))
+
+    try:
+        df = pd.read_excel(BytesIO(archivo.read()))
+    except Exception as e:
+        flash(f'Error al leer el archivo Excel: {e}', 'error')
+        return redirect(url_for('reporte_ganancias'))
+
+    def normalizar(nombre):
+        s = str(nombre).strip().lower()
+        for a, b in [('á','a'),('à','a'),('é','e'),('è','e'),('í','i'),('ì','i'),('ó','o'),('ò','o'),('ú','u'),('ù','u')]:
+            s = s.replace(a, b)
+        return re.sub(r'\s+', ' ', s)
+
+    col_map = {normalizar(c): c for c in df.columns}
+
+    def buscar_col(clave):
+        k = normalizar(clave)
+        if k in col_map:
+            return col_map[k]
+        for norm, orig in col_map.items():
+            if k in norm or norm in k:
+                return orig
+        return None
+
+    col_orden = buscar_col('numero de orden')
+    col_fecha = buscar_col('fecha de creacion')
+    col_envio = buscar_col('costo de envio')
+
+    faltantes = []
+    if not col_orden: faltantes.append('"Numero de orden"')
+    if not col_fecha: faltantes.append('"Fecha de creacion"')
+    if not col_envio: faltantes.append('"Costo de envio"')
+
+    if faltantes:
+        flash(f'Columnas no encontradas en el Excel: {", ".join(faltantes)}. '
+              f'Columnas detectadas: {list(df.columns)}', 'error')
+        return redirect(url_for('reporte_ganancias'))
+
+    df_work = df[[col_orden, col_fecha, col_envio]].copy()
+    df_work.columns = ['numero_orden', 'fecha_pedido', 'costo_envio']
+    df_work['numero_orden'] = df_work['numero_orden'].astype(str).str.strip()
+    df_work['numero_orden'] = df_work['numero_orden'].apply(
+        lambda x: str(int(float(x))) if re.match(r'^\d+\.0$', x) else x
+    )
+    df_work['fecha_pedido'] = pd.to_datetime(df_work['fecha_pedido'], errors='coerce')
+    df_work['costo_envio'] = pd.to_numeric(df_work['costo_envio'], errors='coerce').fillna(0.0)
+    df_work = df_work[df_work['numero_orden'].notna() & (df_work['numero_orden'] != '') & (df_work['numero_orden'] != 'nan')]
+
+    actualizadas = 0
+    no_encontradas = 0
+
+    for _, row in df_work.iterrows():
+        venta = Venta.query.filter_by(numero_orden=row['numero_orden']).first()
+        if venta is None:
+            no_encontradas += 1
+            continue
+        if pd.notna(row['fecha_pedido']):
+            venta.fecha_pedido = row['fecha_pedido'].to_pydatetime()
+        venta.costo_envio = float(row['costo_envio'])
+        actualizadas += 1
+
+    db.session.commit()
+
+    flash(f'Importación completada: {actualizadas} ventas actualizadas, {no_encontradas} órdenes no encontradas.', 'success')
+    fecha_inicio = request.args.get('fecha_inicio', '')
+    fecha_fin    = request.args.get('fecha_fin', '')
+    return redirect(url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin))
+
+
 @app.route('/admin/reporte-ganancias/exportar')
 @login_required
 @permiso_requerido('ventas.ver')

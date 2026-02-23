@@ -41,8 +41,52 @@
                         <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
                     </a>
                 </div>
+                <div class="col-12 col-md-2">
+                    <button type="button" class="btn btn-outline-primary w-100 rounded-pill"
+                            data-bs-toggle="modal" data-bs-target="#modalImportarPedidos">
+                        <i class="bi bi-upload me-1"></i> Importar
+                    </button>
+                </div>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ====== MODAL IMPORTAR PEDIDOS ====== -->
+<div class="modal fade" id="modalImportarPedidos" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-upload me-2 text-primary"></i>Importar Fechas y Gastos de Envío
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST"
+                  action="{{ url_for('reporte_ganancias_importar_pedidos', fecha_inicio=fecha_inicio or '', fecha_fin=fecha_fin or '') }}"
+                  enctype="multipart/form-data">
+                <div class="modal-body pt-3">
+                    <p class="text-muted small mb-3">
+                        El Excel debe tener estas columnas (sin importar mayúsculas ni acentos):
+                    </p>
+                    <div class="bg-light rounded-3 p-3 mb-3 font-monospace small">
+                        <div class="text-muted">Numero de orden &nbsp;|&nbsp; Fecha de creacion &nbsp;|&nbsp; Costo de envio</div>
+                        <div>12345 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| 2024-01-15 10:30 &nbsp;&nbsp;&nbsp;| 15.90</div>
+                        <div>12346 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| 2024-01-16 09:00 &nbsp;&nbsp;&nbsp;| 0.00</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Archivo Excel</label>
+                        <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">
+                        <i class="bi bi-upload me-1"></i> Importar
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
