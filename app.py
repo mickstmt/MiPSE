@@ -467,6 +467,9 @@ def ventas_list():
     q = request.args.get('q', '').strip()
     fecha_desde = request.args.get('fecha_desde', '')
     fecha_hasta = request.args.get('fecha_hasta', '')
+    sort = request.args.get('sort', 'fecha')
+    sort_dir = request.args.get('dir', 'desc')
+    page = request.args.get('page', 1, type=int)
 
     query = Venta.query.join(Venta.cliente)
 
@@ -512,13 +515,28 @@ def ventas_list():
         except ValueError:
             pass
 
-    ventas = query.order_by(Venta.fecha_emision.desc()).all()
-    total_resultados = len(ventas)
+    # Ordenamiento dinámico
+    sort_map = {
+        'orden': Venta.numero_orden,
+        'comprobante': Venta.numero_completo,
+        'cliente': Cliente.nombres,
+        'total': Venta.total,
+        'estado': Venta.estado,
+        'fecha': Venta.fecha_emision,
+    }
+    sort_col = sort_map.get(sort, Venta.fecha_emision)
+    query = query.order_by(sort_col.asc() if sort_dir == 'asc' else sort_col.desc())
+
+    pagination = query.paginate(page=page, per_page=25, error_out=False)
+    ventas = pagination.items
+    total_resultados = pagination.total
 
     return render_template('ventas_list.html', ventas=ventas,
                            q=q, tipo_filtro=tipo_filtro,
                            fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
-                           total_resultados=total_resultados)
+                           total_resultados=total_resultados,
+                           pagination=pagination,
+                           sort=sort, sort_dir=sort_dir)
 
 @app.route('/nueva-venta', methods=['GET', 'POST'])
 @login_required
@@ -1935,12 +1953,37 @@ def reporte_ganancias():
         totales['ganancia'] += ganancia
         
     totales['margen'] = (totales['ganancia'] / totales['ingresos'] * 100) if totales['ingresos'] > 0 else 0.0
-    
-    return render_template('reporte_ganancias.html', 
-                           datos=datos_reporte, 
+
+    # Ordenamiento dinámico
+    from datetime import datetime as dt
+    sort = request.args.get('sort', 'fecha')
+    sort_dir = request.args.get('dir', 'desc')
+    sort_key_map = {
+        'orden':      lambda x: x['venta'].numero_orden or '',
+        'fecha':      lambda x: x['fecha_real'] or dt.min,
+        'ingreso':    lambda x: float(x['venta'].total),
+        'costo_total':lambda x: x['costo_total'],
+        'costo_envio':lambda x: x['costo_envio'],
+        'ganancia':   lambda x: x['ganancia'],
+        'margen':     lambda x: x['margen'],
+    }
+    datos_reporte.sort(key=sort_key_map.get(sort, sort_key_map['fecha']), reverse=(sort_dir == 'desc'))
+
+    # Paginación manual
+    per_page = 25
+    page = request.args.get('page', 1, type=int)
+    total_items = len(datos_reporte)
+    total_pages = max(1, (total_items + per_page - 1) // per_page)
+    page = max(1, min(page, total_pages))
+    datos_page = datos_reporte[(page - 1) * per_page : page * per_page]
+
+    return render_template('reporte_ganancias.html',
+                           datos=datos_page,
                            totales=totales,
                            fecha_inicio=fecha_inicio,
-                           fecha_fin=fecha_fin)
+                           fecha_fin=fecha_fin,
+                           sort=sort, sort_dir=sort_dir,
+                           page=page, total_pages=total_pages, total_items=total_items)
 
 
 @app.route('/admin/reporte-ganancias/exportar')

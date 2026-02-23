@@ -115,20 +115,36 @@
     </div>
 </div>
 
+{% macro sort_th_r(label, col, extra_class='') %}
+{% set new_dir = 'asc' if (sort == col and sort_dir == 'desc') else 'desc' %}
+{% set is_active = sort == col %}
+<th class="py-3 {{ extra_class }}">
+    <a href="{{ url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=col, dir=new_dir, page=1) }}"
+       class="sort-link-r {{ 'text-primary fw-semibold' if is_active else 'text-muted' }}">
+        {{ label }}
+        {% if is_active %}
+            <i class="bi bi-arrow-{{ 'up' if sort_dir == 'asc' else 'down' }} ms-1"></i>
+        {% else %}
+            <i class="bi bi-arrow-down-up ms-1 opacity-25"></i>
+        {% endif %}
+    </a>
+</th>
+{% endmacro %}
+
 <!-- ====== TABLA DETALLADA ====== -->
 <div class="card border-0 shadow-sm rounded-4 glass-panel mb-4 overflow-hidden">
     <div class="table-responsive">
         <table class="table table-hover table-borderless align-middle mb-0">
             <thead class="bg-light">
                 <tr>
-                    <th class="ps-4">Orden</th>
-                    <th>Docs. Emitidos</th>
-                    <th>Fecha</th>
-                    <th class="text-end">Ingreso</th>
-                    <th class="text-end">Costo Productos</th>
-                    <th class="text-end">Gasto Envío</th>
-                    <th class="text-end">Ganancia</th>
-                    <th class="text-end pe-4">Margen</th>
+                    {{ sort_th_r('Orden', 'orden', 'ps-4') }}
+                    <th class="py-3">Docs. Emitidos</th>
+                    {{ sort_th_r('Fecha', 'fecha') }}
+                    {{ sort_th_r('Ingreso', 'ingreso', 'text-end') }}
+                    {{ sort_th_r('Costo Productos', 'costo_total', 'text-end') }}
+                    {{ sort_th_r('Gasto Envío', 'costo_envio', 'text-end') }}
+                    {{ sort_th_r('Ganancia', 'ganancia', 'text-end') }}
+                    {{ sort_th_r('Margen', 'margen', 'text-end pe-4') }}
                 </tr>
             </thead>
             <tbody>
@@ -173,6 +189,44 @@
             </tbody>
         </table>
     </div>
+
+    <!-- ====== PAGINACIÓN ====== -->
+    {% if total_pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top bg-light bg-opacity-50">
+        <span class="text-muted small">
+            Mostrando <strong>{{ (page - 1) * 25 + 1 }}–{{ [page * 25, total_items] | min }}</strong>
+            de <strong>{{ total_items }}</strong> ventas
+        </span>
+        <nav>
+            <ul class="pagination pagination-sm mb-0 gap-1">
+                <li class="page-item {{ 'disabled' if page == 1 }}">
+                    <a class="page-link rounded-3 border-0"
+                       href="{{ url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=sort, dir=sort_dir, page=page-1) if page > 1 else '#' }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item {{ 'active' if p == page }}">
+                            <a class="page-link rounded-3 border-0 fw-semibold"
+                               href="{{ url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=sort, dir=sort_dir, page=p) }}">
+                                {{ p }}
+                            </a>
+                        </li>
+                    {% elif p == 2 or p == total_pages - 1 %}
+                        <li class="page-item disabled"><span class="page-link border-0 bg-transparent px-1">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {{ 'disabled' if page == total_pages }}">
+                    <a class="page-link rounded-3 border-0"
+                       href="{{ url_for('reporte_ganancias', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, sort=sort, dir=sort_dir, page=page+1) if page < total_pages else '#' }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 
 <style>
@@ -198,6 +252,36 @@
 
     .bg-primary-subtle {
         background-color: rgba(13, 110, 253, 0.1) !important;
+    }
+
+    .sort-link-r {
+        text-decoration: none;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        transition: color 0.15s;
+        white-space: nowrap;
+    }
+    .sort-link-r:hover { color: #0d6efd !important; }
+    .sort-link-r i { font-size: 0.65rem; }
+
+    .pagination .page-link {
+        background-color: #fff;
+        color: #6c757d;
+        min-width: 32px;
+        text-align: center;
+        transition: all 0.15s;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #0d6efd;
+        color: #fff;
+    }
+    .pagination .page-link:hover:not(.disabled) {
+        background-color: #e9f0ff;
+        color: #0d6efd;
     }
 </style>
 {% endblock %}
