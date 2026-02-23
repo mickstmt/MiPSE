@@ -2158,11 +2158,114 @@ def reporte_ganancias_exportar():
         })
         
     df = pd.DataFrame(rows)
-    
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Ganancias')
-        
+
+        from openpyxl.styles import (PatternFill, Font, Alignment, Border, Side,
+                                     GradientFill)
+        from openpyxl.utils import get_column_letter
+        from openpyxl.styles.numbers import FORMAT_NUMBER_COMMA_SEP1
+
+        ws = writer.sheets['Ganancias']
+
+        # ── Colores ──────────────────────────────────────────────────────────
+        HEADER_BG   = PatternFill('solid', fgColor='1E3A5F')   # azul oscuro
+        HEADER_FONT = Font(color='FFFFFF', bold=True, size=11)
+        TOTAL_BG    = PatternFill('solid', fgColor='E8F4FD')   # azul muy claro
+        TOTAL_FONT  = Font(bold=True, size=11)
+        ROW_ALT_BG  = PatternFill('solid', fgColor='F7FAFD')   # gris azulado suave
+        BORDER_SIDE = Side(style='thin', color='BDD7EE')
+        CELL_BORDER = Border(left=BORDER_SIDE, right=BORDER_SIDE,
+                             top=BORDER_SIDE,  bottom=BORDER_SIDE)
+        CENTER      = Alignment(horizontal='center', vertical='center')
+        RIGHT       = Alignment(horizontal='right',  vertical='center')
+        LEFT        = Alignment(horizontal='left',   vertical='center')
+
+        # ── Anchos de columna ─────────────────────────────────────────────────
+        col_widths = {
+            'A': 16,  # Orden
+            'B': 18,  # Comprobante
+            'C': 20,  # Fecha
+            'D': 18,  # Ingreso Total
+            'E': 20,  # Costo Productos
+            'F': 18,  # Gasto de Envío
+            'G': 18,  # Ganancia Bruta
+            'H': 14,  # Margen
+        }
+        for col, width in col_widths.items():
+            ws.column_dimensions[col].width = width
+
+        ws.row_dimensions[1].height = 28
+
+        n_cols = len(df.columns)
+        n_rows = len(df)
+
+        # ── Encabezados ───────────────────────────────────────────────────────
+        for col_idx in range(1, n_cols + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.fill   = HEADER_BG
+            cell.font   = HEADER_FONT
+            cell.border = CELL_BORDER
+            cell.alignment = CENTER
+
+        # ── Filas de datos ───────────────────────────────────────────────────
+        num_fmt_soles  = '"S/"#,##0.00'
+        num_fmt_pct    = '0.00"%"'
+
+        for row_idx in range(2, n_rows + 2):
+            is_alt = (row_idx % 2 == 0)
+            ws.row_dimensions[row_idx].height = 18
+            for col_idx in range(1, n_cols + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.border = CELL_BORDER
+                if is_alt:
+                    cell.fill = ROW_ALT_BG
+
+                # Alineación y formato numérico por columna
+                if col_idx == 1:        # Orden
+                    cell.alignment = CENTER
+                elif col_idx == 2:      # Comprobante
+                    cell.alignment = CENTER
+                elif col_idx == 3:      # Fecha
+                    cell.alignment = CENTER
+                elif col_idx in (4, 5, 6, 7):   # montos S/
+                    cell.alignment  = RIGHT
+                    cell.number_format = num_fmt_soles
+                elif col_idx == 8:      # Margen %
+                    cell.alignment  = RIGHT
+                    cell.number_format = num_fmt_pct
+
+        # ── Fila de totales ───────────────────────────────────────────────────
+        total_row = n_rows + 2
+        ws.row_dimensions[total_row].height = 22
+
+        totals = {
+            4: df['Ingreso Total (S/)'].sum(),
+            5: df['Costo Productos (S/)'].sum(),
+            6: df['Gasto de Envío (S/)'].sum(),
+            7: df['Ganancia Bruta (S/)'].sum(),
+            8: df['Margen (%)'].mean() if n_rows > 0 else 0,
+        }
+        labels = {1: 'TOTAL', 2: '', 3: f'{n_rows} ventas'}
+
+        for col_idx in range(1, n_cols + 1):
+            cell = ws.cell(row=total_row, column=col_idx)
+            cell.fill   = TOTAL_BG
+            cell.font   = TOTAL_FONT
+            cell.border = CELL_BORDER
+            if col_idx in labels:
+                cell.value     = labels[col_idx]
+                cell.alignment = CENTER if col_idx != 3 else RIGHT
+            elif col_idx in totals:
+                cell.value  = round(totals[col_idx], 2)
+                cell.alignment = RIGHT
+                cell.number_format = num_fmt_soles if col_idx < 8 else num_fmt_pct
+
+        # ── Freeze pane (encabezado fijo) ─────────────────────────────────────
+        ws.freeze_panes = 'A2'
+
     output.seek(0)
     
     # Nombre del archivo dinámico
