@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
 from models import db, Usuario, Cliente, Venta, VentaItem, Categoria, Producto, Variacion, InvoiceTemplate
@@ -131,6 +131,11 @@ def permiso_requerido(codigo_permiso):
 
 
 # ==================== RUTAS DE AUTENTICACIÓN ====================
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory('static/img', 'favicon.ico', mimetype='image/x-icon')
+
 
 @app.route('/')
 def index():
