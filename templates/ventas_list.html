@@ -481,59 +481,165 @@
         const ids = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
         if (ids.length === 0) { alert('No hay ventas seleccionadas'); return; }
         document.getElementById('nc-lote-count').textContent = ids.length;
-        const modal = new bootstrap.Modal(document.getElementById('modalNCLote'));
-        modal.show();
+        document.getElementById('nc-lote-motivo').value = '';
+        new bootstrap.Modal(document.getElementById('modalNCLote')).show();
     }
 
-    document.getElementById('btn-confirmar-nc-lote').addEventListener('click', function () {
+    document.getElementById('btn-confirmar-nc-lote').addEventListener('click', async function () {
         const motivo = document.getElementById('nc-lote-motivo');
         if (!motivo.value) { motivo.focus(); motivo.reportValidity(); return; }
 
-        const ids = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
+        const ids     = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
         const motivoTexto = motivo.options[motivo.selectedIndex].text;
 
-        Swal.fire({
+        // 1. Confirmación
+        const confirm = await Swal.fire({
             title: '¿Confirmar emisión masiva?',
             html: `Se emitirán Notas de Crédito para <strong>${ids.length}</strong> venta(s).<br>
                    <small class="text-muted">Motivo: ${motivoTexto}</small><br><br>
-                   <span class="text-warning"><i class="bi bi-exclamation-triangle"></i>
-                   Solo se procesarán las boletas con estado <strong>Enviado</strong> y sin NC previa.
+                   <span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle me-1"></i>
+                   Solo se procesarán boletas con estado <strong>Enviado</strong> y sin NC previa.
                    Esta acción no se puede deshacer.</span>`,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#dc3545',
+            confirmButtonColor: '#ffc107',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, emitir NCs',
-            cancelButtonText: 'Cancelar',
-            showLoaderOnConfirm: true,
-            preConfirm: () => {
-                bootstrap.Modal.getInstance(document.getElementById('modalNCLote')).hide();
-                return fetch('/ventas/nc-lote', {
+            confirmButtonText: '<i class="bi bi-file-earmark-minus me-1"></i> Sí, emitir NCs',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!confirm.isConfirmed) return;
+
+        // 2. Cerrar modal de motivo y abrir modal de progreso
+        bootstrap.Modal.getInstance(document.getElementById('modalNCLote')).hide();
+
+        const btnConfirmar = document.getElementById('btn-confirmar-nc-lote');
+        btnConfirmar.disabled = true;
+
+        // Reset modal de progreso
+        document.getElementById('nc-prog-spinner').classList.remove('d-none');
+        document.getElementById('nc-prog-ok-icon').classList.add('d-none');
+        document.getElementById('nc-prog-title').textContent = 'Emitiendo Notas de Crédito...';
+        document.getElementById('nc-prog-msg').textContent = 'Enviando a SUNAT, por favor espere.';
+        document.getElementById('nc-prog-bar').style.width = '0%';
+        document.getElementById('nc-prog-bar').className = 'progress-bar progress-bar-striped progress-bar-animated bg-warning';
+        document.getElementById('nc-prog-pct').textContent = '0%';
+        document.getElementById('nc-prog-text').textContent = 'Iniciando...';
+        document.getElementById('nc-prog-stat-ok').textContent = '0';
+        document.getElementById('nc-prog-stat-err').textContent = '0';
+        document.getElementById('nc-prog-container').classList.remove('d-none');
+        document.getElementById('nc-prog-btn-finish').classList.add('d-none');
+        document.getElementById('nc-prog-errores').innerHTML = '';
+        document.getElementById('nc-prog-errores').classList.add('d-none');
+
+        const progressModal = new bootstrap.Modal(document.getElementById('modalNCProgress'));
+        progressModal.show();
+
+        // 3. Procesar uno a uno con progreso en tiempo real
+        let creadas = 0;
+        const errores = [];
+        const total   = ids.length;
+
+        for (let i = 0; i < total; i++) {
+            const pct = Math.round(((i + 1) / total) * 100);
+            document.getElementById('nc-prog-text').textContent = `Procesando ${i + 1} de ${total}...`;
+            try {
+                const res  = await fetch('/ventas/nc-lote', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ venta_ids: ids, motivo_codigo: motivo.value })
-                })
-                .then(r => { if (!r.ok) throw new Error('Error de red'); return r.json(); })
-                .catch(err => Swal.showValidationMessage(`Error: ${err}`));
-            },
-            allowOutsideClick: () => !Swal.isLoading()
-        }).then(result => {
-            if (!result.isConfirmed || !result.value) return;
-            const data = result.value;
-            let html = `<strong class="text-success">${data.creadas} NC(s) emitida(s) exitosamente.</strong>`;
-            if (data.errores && data.errores.length > 0) {
-                html += `<br><br><details><summary class="text-muted small" style="cursor:pointer">
-                         ${data.errores.length} omitida(s) — ver detalle</summary>
-                         <ul class="text-start small mt-2 mb-0">`;
-                data.errores.forEach(e => { html += `<li><strong>${e.numero}</strong>: ${e.error}</li>`; });
-                html += '</ul></details>';
+                    body: JSON.stringify({ venta_ids: [ids[i]], motivo_codigo: motivo.value })
+                });
+                const data = await res.json();
+                if (data.success && data.creadas > 0) {
+                    creadas++;
+                } else {
+                    (data.errores || [{ numero: ids[i], error: data.message || 'Error desconocido' }])
+                        .forEach(e => errores.push(e));
+                }
+            } catch (e) {
+                errores.push({ numero: ids[i], error: 'Error de red' });
             }
-            Swal.fire({ title: 'Proceso completado', html, icon: data.creadas > 0 ? 'success' : 'warning',
-                        confirmButtonText: 'Aceptar' })
-            .then(() => location.reload());
-        });
+            document.getElementById('nc-prog-bar').style.width      = `${pct}%`;
+            document.getElementById('nc-prog-pct').textContent       = `${pct}%`;
+            document.getElementById('nc-prog-stat-ok').textContent   = creadas;
+            document.getElementById('nc-prog-stat-err').textContent  = errores.length;
+        }
+
+        // 4. Estado final
+        document.getElementById('nc-prog-container').classList.add('d-none');
+        document.getElementById('nc-prog-spinner').classList.add('d-none');
+        document.getElementById('nc-prog-ok-icon').classList.remove('d-none');
+        document.getElementById('nc-prog-title').textContent = '¡Proceso Completado!';
+        document.getElementById('nc-prog-msg').textContent   = `${creadas} NC(s) emitida(s) exitosamente.`;
+        document.getElementById('nc-prog-bar').classList.remove('progress-bar-animated', 'progress-bar-striped', 'bg-warning');
+        document.getElementById('nc-prog-bar').classList.add(errores.length === 0 ? 'bg-success' : 'bg-warning');
+        document.getElementById('nc-prog-btn-finish').classList.remove('d-none');
+        btnConfirmar.disabled = false;
+
+        if (errores.length > 0) {
+            const ul = errores.map(e => `<li><strong>${e.numero}</strong>: ${e.error}</li>`).join('');
+            document.getElementById('nc-prog-errores').innerHTML =
+                `<details class="mt-3"><summary class="small text-muted" style="cursor:pointer">
+                 ${errores.length} omitida(s) — ver detalle</summary>
+                 <ul class="text-start small mt-2 mb-0">${ul}</ul></details>`;
+            document.getElementById('nc-prog-errores').classList.remove('d-none');
+        }
+
+        if (errores.length === 0 && creadas > 0) {
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        }
     });
 </script>
+
+<!-- ====== MODAL: PROGRESO NC EN LOTE ====== -->
+<div class="modal fade" id="modalNCProgress" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-body text-center p-5">
+                <div id="nc-prog-spinner" class="mb-4">
+                    <div class="spinner-border text-warning" style="width: 3rem; height: 3rem;"></div>
+                </div>
+                <div id="nc-prog-ok-icon" class="mb-4 d-none">
+                    <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center"
+                         style="width: 80px; height: 80px;">
+                        <i class="bi bi-check-lg fs-1"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold" id="nc-prog-title">Emitiendo Notas de Crédito...</h3>
+                <p class="text-muted mb-4" id="nc-prog-msg">Enviando a SUNAT, por favor espere.</p>
+
+                <div id="nc-prog-container" class="mb-4">
+                    <div class="progress rounded-pill shadow-sm" style="height: 12px;">
+                        <div id="nc-prog-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning"
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2 small fw-bold">
+                        <span id="nc-prog-text" class="text-warning">Iniciando...</span>
+                        <span id="nc-prog-pct" class="text-muted">0%</span>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-6">
+                        <div class="h2 fw-bold text-success mb-0" id="nc-prog-stat-ok">0</div>
+                        <div class="small text-muted text-uppercase fw-bold">Emitidas</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="h2 fw-bold text-danger mb-0" id="nc-prog-stat-err">0</div>
+                        <div class="small text-muted text-uppercase fw-bold">Omitidas</div>
+                    </div>
+                </div>
+
+                <div id="nc-prog-errores" class="d-none"></div>
+
+                <div class="mt-4 d-none" id="nc-prog-btn-finish">
+                    <button class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3" onclick="location.reload()">
+                        <i class="bi bi-list-check me-2"></i>IR A LISTA DE VENTAS
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ====== MODAL: MOTIVO NC EN LOTE ====== -->
 <div class="modal fade" id="modalNCLote" tabindex="-1">
@@ -576,4 +682,6 @@
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 {% endblock %}
