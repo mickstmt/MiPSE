@@ -212,24 +212,23 @@ class SUNATService:
             party_legal = etree.SubElement(customer_party, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}PartyLegalEntity")
             etree.SubElement(party_legal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}RegistrationName").text = venta.cliente.nombre_completo
 
-            # === TAX TOTAL (IGV) ===
-            # Calcular IGV (18%)
-            subtotal = float(venta.total) / 1.18
-            igv = float(venta.total) - subtotal
+            # === TAX TOTAL (RUS — operaciones inafectas, IGV = 0) ===
+            subtotal = float(venta.total)  # LineExtensionAmount = total (sin IGV)
+            igv = 0.0
 
             tax_total = etree.SubElement(invoice, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxTotal")
             tax_amount = etree.SubElement(tax_total, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxAmount")
             tax_amount.set("currencyID", "PEN")
-            tax_amount.text = f"{igv:.2f}"
+            tax_amount.text = "0.00"
 
             tax_subtotal = etree.SubElement(tax_total, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxSubtotal")
             taxable_amount = etree.SubElement(tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxableAmount")
             taxable_amount.set("currencyID", "PEN")
-            taxable_amount.text = f"{subtotal:.2f}"
+            taxable_amount.text = "0.00"
 
             tax_amount2 = etree.SubElement(tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxAmount")
             tax_amount2.set("currencyID", "PEN")
-            tax_amount2.text = f"{igv:.2f}"
+            tax_amount2.text = "0.00"
 
             tax_category = etree.SubElement(tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxCategory")
             tax_scheme = etree.SubElement(tax_category, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxScheme")
@@ -237,9 +236,9 @@ class SUNATService:
             tax_id.set("schemeAgencyName", "PE:SUNAT")
             tax_id.set("schemeID", "UN/ECE 5153")
             tax_id.set("schemeName", "Codigo de tributos")
-            tax_id.text = "1000"  # IGV
-            etree.SubElement(tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Name").text = "IGV"
-            etree.SubElement(tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxTypeCode").text = "VAT"
+            tax_id.text = "9997"  # Inafecto
+            etree.SubElement(tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Name").text = "INA"
+            etree.SubElement(tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxTypeCode").text = "FRE"
 
             # === LEGAL MONETARY TOTAL ===
             monetary_total = etree.SubElement(invoice, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}LegalMonetaryTotal")
@@ -268,8 +267,8 @@ class SUNATService:
                 invoiced_qty.set("unitCodeListID", "UN/ECE rec 20")
                 invoiced_qty.text = f"{float(item.cantidad):.2f}"
 
-                # Monto de la línea (sin IGV)
-                item_subtotal = float(item.subtotal) / 1.18
+                # Monto de la línea (inafecto, sin IGV)
+                item_subtotal = float(item.subtotal)
                 line_ext = etree.SubElement(invoice_line, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}LineExtensionAmount")
                 line_ext.set("currencyID", "PEN")
                 line_ext.text = f"{item_subtotal:.2f}"
@@ -286,38 +285,37 @@ class SUNATService:
                 price_type_code.set("listURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16")
                 price_type_code.text = "01"
 
-                # IGV del item
-                item_igv = item_subtotal * 0.18
+                # IGV del item = 0 (RUS — inafecto)
                 item_tax_total = etree.SubElement(invoice_line, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxTotal")
                 item_tax_amount = etree.SubElement(item_tax_total, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxAmount")
                 item_tax_amount.set("currencyID", "PEN")
-                item_tax_amount.text = f"{item_igv:.2f}"
+                item_tax_amount.text = "0.00"
 
                 item_tax_subtotal = etree.SubElement(item_tax_total, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxSubtotal")
                 item_taxable = etree.SubElement(item_tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxableAmount")
                 item_taxable.set("currencyID", "PEN")
-                item_taxable.text = f"{item_subtotal:.2f}"
+                item_taxable.text = "0.00"
 
                 item_tax_amt2 = etree.SubElement(item_tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxAmount")
                 item_tax_amt2.set("currencyID", "PEN")
-                item_tax_amt2.text = f"{item_igv:.2f}"
+                item_tax_amt2.text = "0.00"
 
                 item_tax_cat = etree.SubElement(item_tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxCategory")
-                etree.SubElement(item_tax_cat, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Percent").text = "18.00"
+                etree.SubElement(item_tax_cat, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Percent").text = "0.00"
                 tax_exemption_code = etree.SubElement(item_tax_cat, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxExemptionReasonCode")
                 tax_exemption_code.set("listAgencyName", "PE:SUNAT")
                 tax_exemption_code.set("listName", "Afectacion del IGV")
                 tax_exemption_code.set("listURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07")
-                tax_exemption_code.text = "10"
+                tax_exemption_code.text = "30"
 
                 item_tax_scheme = etree.SubElement(item_tax_cat, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxScheme")
                 tax_id = etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}ID")
                 tax_id.set("schemeAgencyName", "PE:SUNAT")
                 tax_id.set("schemeID", "UN/ECE 5153")
                 tax_id.set("schemeName", "Codigo de tributos")
-                tax_id.text = "1000"
-                etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Name").text = "IGV"
-                etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxTypeCode").text = "VAT"
+                tax_id.text = "9997"  # Inafecto
+                etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Name").text = "INA"
+                etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxTypeCode").text = "FRE"
 
                 # Descripción del item (limpiar tabs y saltos de línea)
                 item_elem = etree.SubElement(invoice_line, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}Item")
@@ -326,12 +324,11 @@ class SUNATService:
                 producto_nombre_limpio = str(item.producto_nombre).split('\t')[0].strip()
                 item_desc.text = producto_nombre_limpio
 
-                # Precio unitario sin IGV
+                # Precio unitario (inafecto — precio final sin IGV que descontar)
                 price = etree.SubElement(invoice_line, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}Price")
                 price_amt = etree.SubElement(price, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}PriceAmount")
-                precio_sin_igv = float(item.precio_unitario) / 1.18
                 price_amt.set("currencyID", "PEN")
-                price_amt.text = f"{precio_sin_igv:.2f}"
+                price_amt.text = f"{float(item.precio_unitario):.2f}"
 
             # Generar XML string con encoding ISO-8859-1 como SUNAT requiere
             xml_string = etree.tostring(invoice, pretty_print=True, xml_declaration=True, encoding='ISO-8859-1')
@@ -458,30 +455,30 @@ class SUNATService:
             etree.SubElement(party_legal, f"{{{cbc}}}RegistrationName").text = venta.cliente.nombre_completo
 
             # === TAX TOTAL (IGV) ===
+            # RUS — operaciones inafectas, IGV = 0
             val_total = float(venta.total)
-            subtotal  = val_total / 1.18
-            igv       = val_total - subtotal
+            subtotal  = val_total   # LineExtensionAmount = total (sin IGV)
 
             tax_total = etree.SubElement(root, f"{{{cac}}}TaxTotal")
             tax_amount = etree.SubElement(tax_total, f"{{{cbc}}}TaxAmount")
             tax_amount.set("currencyID", "PEN")
-            tax_amount.text = f"{igv:.2f}"
+            tax_amount.text = "0.00"
             tax_subtotal = etree.SubElement(tax_total, f"{{{cac}}}TaxSubtotal")
             taxable_amount = etree.SubElement(tax_subtotal, f"{{{cbc}}}TaxableAmount")
             taxable_amount.set("currencyID", "PEN")
-            taxable_amount.text = f"{subtotal:.2f}"
+            taxable_amount.text = "0.00"
             tax_amount2 = etree.SubElement(tax_subtotal, f"{{{cbc}}}TaxAmount")
             tax_amount2.set("currencyID", "PEN")
-            tax_amount2.text = f"{igv:.2f}"
+            tax_amount2.text = "0.00"
             tax_category = etree.SubElement(tax_subtotal, f"{{{cac}}}TaxCategory")
             tax_scheme = etree.SubElement(tax_category, f"{{{cac}}}TaxScheme")
             tax_id = etree.SubElement(tax_scheme, f"{{{cbc}}}ID")
             tax_id.set("schemeAgencyName", "PE:SUNAT")
             tax_id.set("schemeID", "UN/ECE 5153")
             tax_id.set("schemeName", "Codigo de tributos")
-            tax_id.text = "1000"
-            etree.SubElement(tax_scheme, f"{{{cbc}}}Name").text = "IGV"
-            etree.SubElement(tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "VAT"
+            tax_id.text = "9997"  # Inafecto
+            etree.SubElement(tax_scheme, f"{{{cbc}}}Name").text = "INA"
+            etree.SubElement(tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "FRE"
 
             # === LEGAL MONETARY TOTAL ===
             monetary_total = etree.SubElement(root, f"{{{cac}}}LegalMonetaryTotal")
@@ -506,12 +503,13 @@ class SUNATService:
                 credited_qty.set("unitCodeListID", "UN/ECE rec 20")
                 credited_qty.text = f"{float(item.cantidad):.2f}"
 
-                item_subtotal_sin_igv = float(item.subtotal) / 1.18
+                # Monto de la línea (inafecto, sin IGV)
+                item_subtotal_sin_igv = float(item.subtotal)
                 line_ext_amt = etree.SubElement(cn_line, f"{{{cbc}}}LineExtensionAmount")
                 line_ext_amt.set("currencyID", "PEN")
                 line_ext_amt.text = f"{item_subtotal_sin_igv:.2f}"
 
-                # Precio unitario con IGV (precio de venta)
+                # Precio unitario (precio de venta al público)
                 pricing_ref = etree.SubElement(cn_line, f"{{{cac}}}PricingReference")
                 alt_cond = etree.SubElement(pricing_ref, f"{{{cac}}}AlternativeConditionPrice")
                 price_amt = etree.SubElement(alt_cond, f"{{{cbc}}}PriceAmount")
@@ -523,45 +521,44 @@ class SUNATService:
                 price_type.set("listURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16")
                 price_type.text = "01"
 
-                # IGV del item
-                item_igv = item_subtotal_sin_igv * 0.18
+                # IGV del item = 0 (RUS — inafecto)
                 item_tax_total = etree.SubElement(cn_line, f"{{{cac}}}TaxTotal")
                 item_tax_amt = etree.SubElement(item_tax_total, f"{{{cbc}}}TaxAmount")
                 item_tax_amt.set("currencyID", "PEN")
-                item_tax_amt.text = f"{item_igv:.2f}"
+                item_tax_amt.text = "0.00"
                 item_tax_sub = etree.SubElement(item_tax_total, f"{{{cac}}}TaxSubtotal")
                 item_taxable = etree.SubElement(item_tax_sub, f"{{{cbc}}}TaxableAmount")
                 item_taxable.set("currencyID", "PEN")
-                item_taxable.text = f"{item_subtotal_sin_igv:.2f}"
+                item_taxable.text = "0.00"
                 item_tax_amt2 = etree.SubElement(item_tax_sub, f"{{{cbc}}}TaxAmount")
                 item_tax_amt2.set("currencyID", "PEN")
-                item_tax_amt2.text = f"{item_igv:.2f}"
+                item_tax_amt2.text = "0.00"
                 item_tax_cat = etree.SubElement(item_tax_sub, f"{{{cac}}}TaxCategory")
-                etree.SubElement(item_tax_cat, f"{{{cbc}}}Percent").text = "18.00"
+                etree.SubElement(item_tax_cat, f"{{{cbc}}}Percent").text = "0.00"
                 tex_exc = etree.SubElement(item_tax_cat, f"{{{cbc}}}TaxExemptionReasonCode")
                 tex_exc.set("listAgencyName", "PE:SUNAT")
                 tex_exc.set("listName", "Afectacion del IGV")
                 tex_exc.set("listURI", "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07")
-                tex_exc.text = "10"
+                tex_exc.text = "30"  # Inafecto
                 item_tax_scheme = etree.SubElement(item_tax_cat, f"{{{cac}}}TaxScheme")
                 ts_id = etree.SubElement(item_tax_scheme, f"{{{cbc}}}ID")
                 ts_id.set("schemeAgencyName", "PE:SUNAT")
                 ts_id.set("schemeID", "UN/ECE 5153")
                 ts_id.set("schemeName", "Codigo de tributos")
-                ts_id.text = "1000"
-                etree.SubElement(item_tax_scheme, f"{{{cbc}}}Name").text = "IGV"
-                etree.SubElement(item_tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "VAT"
+                ts_id.text = "9997"  # Inafecto
+                etree.SubElement(item_tax_scheme, f"{{{cbc}}}Name").text = "INA"
+                etree.SubElement(item_tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "FRE"
 
                 # Descripción del item
                 item_elem = etree.SubElement(cn_line, f"{{{cac}}}Item")
                 item_desc = etree.SubElement(item_elem, f"{{{cbc}}}Description")
                 item_desc.text = str(item.producto_nombre).split('\t')[0].strip()
 
-                # Precio unitario sin IGV
+                # Precio unitario (inafecto — precio final sin IGV que descontar)
                 price_elem = etree.SubElement(cn_line, f"{{{cac}}}Price")
                 price_unit = etree.SubElement(price_elem, f"{{{cbc}}}PriceAmount")
                 price_unit.set("currencyID", "PEN")
-                price_unit.text = f"{float(item.precio_unitario) / 1.18:.2f}"
+                price_unit.text = f"{float(item.precio_unitario):.2f}"
 
             # Serializar
             xml_string = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='ISO-8859-1')

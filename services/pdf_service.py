@@ -207,8 +207,8 @@ def generar_pdf_boleta(venta, output_path):
         # 4. TOTALES Y SON:
         # ----------------------------------------------------------------------
 
-        # IGV aplica solo a productos; el gasto de envío es inafecto.
-        # productos_total = total sin envío (base imponible)
+        # RUS — todas las operaciones son inafectas (IGV = 0).
+        # productos_total = total sin envío (monto inafecto de productos)
         if tiene_item_envio:
             # El ENVIO item ya está en venta.total → restarlo para obtener solo productos
             productos_total = float(venta.total) - costo_envio_val
@@ -217,8 +217,8 @@ def generar_pdf_boleta(venta, output_path):
             productos_total = float(venta.total)
 
         val_total    = productos_total + costo_envio_val
-        val_subtotal = round(productos_total / 1.18, 2)
-        val_igv      = round(productos_total - val_subtotal, 2)
+        val_subtotal = round(productos_total, 2)  # INAFECTO = monto total de productos
+        val_igv      = 0.0
 
         # Son: [Letras]
         monto_letras = number_to_words_es(val_total)
@@ -230,8 +230,8 @@ def generar_pdf_boleta(venta, output_path):
         elements.append(son_tab)
 
         totals_data = [
-            [Paragraph('GRAVADO', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_subtotal:.2f}', style_right)],
-            [Paragraph('I.G.V 18%', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_igv:.2f}', style_right)],
+            [Paragraph('INAFECTO', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_subtotal:.2f}', style_right)],
+            [Paragraph('I.G.V', style_right_bold), Paragraph('S/', style_norm), Paragraph(f'{val_igv:.2f}', style_right)],
         ]
         if costo_envio_val > 0:
             totals_data.append([
