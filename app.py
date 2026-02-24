@@ -163,7 +163,8 @@ def login():
             usuario.ultimo_login = datetime.utcnow()
             db.session.commit()
             
-            login_user(usuario)
+            remember_me = bool(request.form.get('remember_me'))
+            login_user(usuario, remember=remember_me)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': True, 'redirect': url_for('dashboard')})
             return redirect(url_for('dashboard'))
