@@ -103,6 +103,8 @@
                             <span class="badge bg-success">Enviado a SUNAT</span>
                             {% elif venta.estado == 'ACEPTADO' %}
                             <span class="badge bg-success">Aceptado</span>
+                            {% elif venta.estado == 'RECHAZADO' %}
+                            <span class="badge bg-danger">Rechazado por SUNAT</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -247,6 +249,8 @@
                         <span class="badge bg-success">Enviado</span>
                         {% elif nc.estado == 'PENDIENTE' %}
                         <span class="badge bg-warning text-dark">Pendiente</span>
+                        {% elif nc.estado == 'RECHAZADO' %}
+                        <span class="badge bg-danger">Rechazado</span>
                         {% else %}
                         <span class="badge bg-secondary">{{ nc.estado }}</span>
                         {% endif %}

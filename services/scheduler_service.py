@@ -60,10 +60,12 @@ class SchedulerService:
                         resultado = service.procesar_venta(venta)
 
                         if resultado['success']:
-                            venta.estado = 'ENVIADO'
+                            rc = str(resultado.get('response_code', '0'))
+                            venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+                            venta.codigo_sunat = rc
                             venta.fecha_envio_sunat = datetime.utcnow()
                             venta.cdr_path = resultado.get('cdr_path')
-                            venta.mensaje_sunat = resultado.get('message')
+                            venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
                             enviadas += 1
                             logger.info(f"✓ Venta {venta.numero_completo} enviada exitosamente")
                         else:

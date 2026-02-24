@@ -20,6 +20,7 @@ if sys.platform == "win32":
 import os
 import base64
 import requests
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 
@@ -451,6 +452,25 @@ class MiPSEService:
             else:
                 print(f"\n[MiPSE] ERROR - {envio_result.get('mensaje')}")
                 resultado['message'] = envio_result.get('error') or envio_result.get('mensaje')
+
+            # Parsear CDR para extraer ResponseCode de SUNAT
+            response_code = '0'
+            response_description = None
+            if resultado.get('cdr'):
+                try:
+                    cdr_bytes = base64.b64decode(resultado['cdr'])
+                    cdr_tree = ET.fromstring(cdr_bytes)
+                    for elem in cdr_tree.iter():
+                        tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                        if tag == 'ResponseCode' and response_code == '0':
+                            response_code = elem.text or '0'
+                        elif tag == 'Description' and response_description is None:
+                            response_description = elem.text
+                    print(f"[MiPSE] CDR ResponseCode: {response_code}")
+                except Exception as e:
+                    print(f"[MiPSE] No se pudo parsear CDR: {e}")
+            resultado['response_code'] = response_code
+            resultado['response_description'] = response_description
 
             return resultado
 

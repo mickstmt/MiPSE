@@ -662,12 +662,14 @@ def nueva_venta():
                 resultado = service.procesar_venta(venta)
                 
                 if resultado['success']:
-                    venta.estado = 'ENVIADO'
+                    rc = str(resultado.get('response_code', '0'))
+                    venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+                    venta.codigo_sunat = rc
                     venta.fecha_envio_sunat = datetime.now()
-                    venta.mensaje_sunat = resultado.get('message')
+                    venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
                     venta.hash_cpe = resultado.get('hash')
                     venta.external_id = resultado.get('external_id')
-                    
+
                     # Guardar archivos XML y CDR
                     print(f" [SALE-FLOW] Guardando archivos para venta {venta.id}...")
                     guardar_archivos_mipse(venta, resultado)
@@ -808,9 +810,11 @@ def nueva_nota_credito():
             resultado = service.procesar_venta(nc)
 
             if resultado['success']:
-                nc.estado = 'ENVIADO'
+                rc = str(resultado.get('response_code', '0'))
+                nc.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+                nc.codigo_sunat = rc
                 nc.fecha_envio_sunat = datetime.now()
-                nc.mensaje_sunat = resultado.get('message')
+                nc.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
                 nc.hash_cpe = resultado.get('hash')
                 nc.external_id = resultado.get('external_id')
                 guardar_archivos_mipse(nc, resultado)
@@ -911,11 +915,13 @@ def nc_lote():
                 service  = MiPSEService()
                 resultado = service.procesar_venta(nc)
                 if resultado['success']:
-                    nc.estado           = 'ENVIADO'
+                    rc = str(resultado.get('response_code', '0'))
+                    nc.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+                    nc.codigo_sunat = rc
                     nc.fecha_envio_sunat = datetime.now()
-                    nc.mensaje_sunat    = resultado.get('message')
-                    nc.hash_cpe         = resultado.get('hash')
-                    nc.external_id      = resultado.get('external_id')
+                    nc.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
+                    nc.hash_cpe = resultado.get('hash')
+                    nc.external_id = resultado.get('external_id')
                     guardar_archivos_mipse(nc, resultado)
                     db.session.commit()
                     creadas += 1
@@ -1072,9 +1078,11 @@ def enviar_sunat(venta_id):
 
         if resultado['success']:
             # Actualizar estado de la venta
-            venta.estado = 'ENVIADO'
+            rc = str(resultado.get('response_code', '0'))
+            venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+            venta.codigo_sunat = rc
             venta.fecha_envio_sunat = datetime.now()
-            venta.mensaje_sunat = resultado.get('message')
+            venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
             venta.hash_cpe = resultado.get('hash')
             venta.external_id = resultado.get('external_id')
 
@@ -1267,10 +1275,12 @@ def enviar_lote():
                 resultado = service.procesar_venta(venta)
 
                 if resultado['success']:
-                    venta.estado = 'ENVIADO'
+                    rc = str(resultado.get('response_code', '0'))
+                    venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+                    venta.codigo_sunat = rc
                     venta.fecha_envio_sunat = datetime.utcnow()
                     venta.cdr_path = resultado.get('cdr_path')
-                    venta.mensaje_sunat = resultado.get('message')
+                    venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
                     enviadas += 1
                 else:
                     errores.append(f"{venta.numero_completo}: {resultado.get('message', 'Error desconocido')}")
@@ -1786,9 +1796,11 @@ def bulk_process():
                     resultado = service.procesar_venta(venta)
                     
                     if resultado['success']:
-                        venta.estado = 'ENVIADO'
+                        rc = str(resultado.get('response_code', '0'))
+                        venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
+                        venta.codigo_sunat = rc
                         venta.fecha_envio_sunat = datetime.now()
-                        venta.mensaje_sunat = resultado.get('message')
+                        venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
                         venta.hash_cpe = resultado.get('hash')
                         venta.external_id = resultado.get('external_id')
                         
