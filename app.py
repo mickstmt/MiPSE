@@ -1342,6 +1342,37 @@ def scheduler_ejecutar_ahora():
         }), 500
 
 
+@app.route('/admin/ventas/recuperar-cdrs', methods=['POST'])
+@login_required
+def recuperar_cdrs_masivo():
+    """Intenta recuperar desde MiPSE todos los CDRs que faltan en disco"""
+    ventas = Venta.query.filter(
+        Venta.estado.in_(['ENVIADO', 'ACEPTADO', 'RECHAZADO'])
+    ).all()
+
+    recuperados = 0
+    fallidos = 0
+    omitidos = 0
+
+    for venta in ventas:
+        if venta.cdr_path and os.path.exists(venta.cdr_path):
+            omitidos += 1
+            continue
+        if recuperar_documentos_mipse(venta):
+            recuperados += 1
+        else:
+            fallidos += 1
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'recuperados': recuperados,
+        'fallidos': fallidos,
+        'omitidos': omitidos,
+        'message': f'{recuperados} CDR(s) recuperados, {fallidos} fallidos, {omitidos} ya existían.'
+    })
+
+
 @app.route('/api/get-categories')
 @login_required
 def get_categories():
