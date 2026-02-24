@@ -285,9 +285,13 @@ def dashboard():
     from datetime import date
     
     # Estadísticas básicas
-    total_ventas = Venta.query.count()
+    total_boletas = Venta.query.filter(
+        Venta.tipo_comprobante == 'BOLETA',
+        Venta.estado.notin_(['BORRADOR', 'RECHAZADO'])
+    ).count()
+    total_ncs_count = Venta.query.filter_by(tipo_comprobante='NOTA_CREDITO').count()
     ventas_pendientes = Venta.query.filter_by(estado='PENDIENTE').count()
-    ventas_enviadas = Venta.query.filter_by(estado='ENVIADO').count()
+    ventas_rechazadas = Venta.query.filter_by(estado='RECHAZADO').count()
     
     # Cálculo para Semáforo RUS (Mes actual)
     # Boletas emitidas − Notas de Crédito (NCs restan porque anulan su boleta)
@@ -316,10 +320,11 @@ def dashboard():
     # Últimas ventas
     ultimas_ventas = Venta.query.order_by(Venta.fecha_emision.desc()).limit(10).all()
     
-    return render_template('dashboard.html', 
-                         total_ventas=total_ventas,
+    return render_template('dashboard.html',
+                         total_boletas=total_boletas,
+                         total_ncs_count=total_ncs_count,
                          ventas_pendientes=ventas_pendientes,
-                         ventas_enviadas=ventas_enviadas,
+                         ventas_rechazadas=ventas_rechazadas,
                          ultimas_ventas=ultimas_ventas,
                          total_mes=total_mes,
                          limite_cat1=limite_cat1,
