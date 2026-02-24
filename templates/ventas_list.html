@@ -114,6 +114,9 @@
                                     class="bi bi-file-check me-2 text-success"></i>CDRs (ZIP)</button></li>
                     </ul>
                 </div>
+                <button class="btn btn-sm btn-warning rounded-pill px-3" onclick="abrirModalNCLote()" title="Emitir Nota de Crédito a las boletas seleccionadas">
+                    <i class="bi bi-file-earmark-minus me-1"></i> Emitir NCs
+                </button>
                 <button class="btn btn-sm btn-primary rounded-pill px-3" onclick="enviarSeleccionadas()">
                     <i class="bi bi-send me-1"></i> Enviar a SUNAT
                 </button>
@@ -472,5 +475,105 @@
         document.querySelectorAll('.venta-checkbox').forEach(cb => cb.checked = checkbox.checked);
         updateSelectedCount();
     }
+
+    // ====== NOTAS DE CRÉDITO EN LOTE ======
+    function abrirModalNCLote() {
+        const ids = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
+        if (ids.length === 0) { alert('No hay ventas seleccionadas'); return; }
+        document.getElementById('nc-lote-count').textContent = ids.length;
+        const modal = new bootstrap.Modal(document.getElementById('modalNCLote'));
+        modal.show();
+    }
+
+    document.getElementById('btn-confirmar-nc-lote').addEventListener('click', function () {
+        const motivo = document.getElementById('nc-lote-motivo');
+        if (!motivo.value) { motivo.focus(); motivo.reportValidity(); return; }
+
+        const ids = Array.from(document.querySelectorAll('.venta-checkbox:checked')).map(cb => cb.value);
+        const motivoTexto = motivo.options[motivo.selectedIndex].text;
+
+        Swal.fire({
+            title: '¿Confirmar emisión masiva?',
+            html: `Se emitirán Notas de Crédito para <strong>${ids.length}</strong> venta(s).<br>
+                   <small class="text-muted">Motivo: ${motivoTexto}</small><br><br>
+                   <span class="text-warning"><i class="bi bi-exclamation-triangle"></i>
+                   Solo se procesarán las boletas con estado <strong>Enviado</strong> y sin NC previa.
+                   Esta acción no se puede deshacer.</span>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, emitir NCs',
+            cancelButtonText: 'Cancelar',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                bootstrap.Modal.getInstance(document.getElementById('modalNCLote')).hide();
+                return fetch('/ventas/nc-lote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ venta_ids: ids, motivo_codigo: motivo.value })
+                })
+                .then(r => { if (!r.ok) throw new Error('Error de red'); return r.json(); })
+                .catch(err => Swal.showValidationMessage(`Error: ${err}`));
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+        }).then(result => {
+            if (!result.isConfirmed || !result.value) return;
+            const data = result.value;
+            let html = `<strong class="text-success">${data.creadas} NC(s) emitida(s) exitosamente.</strong>`;
+            if (data.errores && data.errores.length > 0) {
+                html += `<br><br><details><summary class="text-muted small" style="cursor:pointer">
+                         ${data.errores.length} omitida(s) — ver detalle</summary>
+                         <ul class="text-start small mt-2 mb-0">`;
+                data.errores.forEach(e => { html += `<li><strong>${e.numero}</strong>: ${e.error}</li>`; });
+                html += '</ul></details>';
+            }
+            Swal.fire({ title: 'Proceso completado', html, icon: data.creadas > 0 ? 'success' : 'warning',
+                        confirmButtonText: 'Aceptar' })
+            .then(() => location.reload());
+        });
+    });
 </script>
+
+<!-- ====== MODAL: MOTIVO NC EN LOTE ====== -->
+<div class="modal fade" id="modalNCLote" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-file-earmark-minus text-warning me-2"></i>Emitir Notas de Crédito en lote
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <div class="alert alert-warning d-flex gap-2 align-items-start py-2">
+                    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+                    <div class="small">
+                        Se procesarán <strong id="nc-lote-count">0</strong> venta(s) seleccionada(s).
+                        Solo se emitirán NCs para boletas con estado <strong>Enviado</strong> y sin NC previa.
+                        Las demás serán omitidas con detalle.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        Motivo <span class="text-danger">*</span>
+                        <small class="text-muted fw-normal">(SUNAT Catálogo 09)</small>
+                    </label>
+                    <select id="nc-lote-motivo" class="form-select rounded-3" required>
+                        <option value="" disabled selected>— Seleccione el motivo —</option>
+                        {% for codigo, descripcion in motivos_nc.items() %}
+                        <option value="{{ codigo }}">{{ codigo }} — {{ descripcion }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning rounded-pill px-4 fw-semibold" id="btn-confirmar-nc-lote">
+                    <i class="bi bi-file-earmark-minus me-1"></i> Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

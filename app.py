@@ -543,7 +543,8 @@ def ventas_list():
                            fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
                            total_resultados=total_resultados,
                            pagination=pagination,
-                           sort=sort, sort_dir=sort_dir)
+                           sort=sort, sort_dir=sort_dir,
+                           motivos_nc=MOTIVOS_NC)
 
 @app.route('/nueva-venta', methods=['GET', 'POST'])
 @login_required
@@ -807,6 +808,110 @@ def nueva_nota_credito():
         db.session.rollback()
         flash(f'Error al crear la nota de crédito: {str(e)}', 'danger')
         return redirect(url_for('ventas_list'))
+
+
+@app.route('/ventas/nc-lote', methods=['POST'])
+@login_required
+def nc_lote():
+    """Emite Notas de Crédito en lote para múltiples boletas seleccionadas."""
+    data = request.get_json()
+    venta_ids   = data.get('venta_ids', [])
+    motivo_codigo = data.get('motivo_codigo', '').strip()
+
+    if not motivo_codigo or motivo_codigo not in MOTIVOS_NC:
+        return jsonify({'success': False, 'message': 'Motivo inválido'})
+    if not venta_ids:
+        return jsonify({'success': False, 'message': 'No se seleccionaron ventas'})
+
+    serie_nc = app.config.get('SERIE_NOTA_CREDITO', 'BC01')
+    creadas  = 0
+    errores  = []
+
+    for venta_id in venta_ids:
+        try:
+            boleta = Venta.query.get(int(venta_id))
+            if not boleta:
+                errores.append({'numero': str(venta_id), 'error': 'No encontrada'})
+                continue
+            if boleta.tipo_comprobante == 'NOTA_CREDITO':
+                errores.append({'numero': boleta.numero_completo, 'error': 'Es una NC'})
+                continue
+            if boleta.estado != 'ENVIADO':
+                errores.append({'numero': boleta.numero_completo, 'error': f'Estado: {boleta.estado}'})
+                continue
+            if boleta.notas_credito:
+                errores.append({'numero': boleta.numero_completo, 'error': 'Ya tiene NC'})
+                continue
+
+            # Calcular correlativo para esta NC
+            max_correlativo = db.session.query(
+                db.func.max(db.cast(Venta.correlativo, db.Integer))
+            ).filter(Venta.serie == serie_nc).scalar()
+            correlativo     = 1 if not max_correlativo else max_correlativo + 1
+            correlativo_str = str(correlativo).zfill(8)
+            numero_completo = f"{serie_nc}-{correlativo_str}"
+
+            nc = Venta(
+                numero_orden=boleta.numero_orden,
+                serie=serie_nc,
+                correlativo=correlativo_str,
+                numero_completo=numero_completo,
+                cliente_id=boleta.cliente_id,
+                vendedor_id=current_user.id,
+                subtotal=boleta.subtotal,
+                descuento=boleta.descuento,
+                costo_envio=boleta.costo_envio,
+                total=boleta.total,
+                estado='PENDIENTE',
+                tipo_comprobante='NOTA_CREDITO',
+                venta_referencia_id=boleta.id,
+                motivo_nc_codigo=motivo_codigo,
+                motivo_nc_descripcion=MOTIVOS_NC[motivo_codigo],
+            )
+            db.session.add(nc)
+            db.session.flush()
+
+            for item in boleta.items:
+                db.session.add(VentaItem(
+                    venta_id=nc.id,
+                    producto_nombre=item.producto_nombre,
+                    producto_sku=item.producto_sku,
+                    cantidad=item.cantidad,
+                    precio_unitario=item.precio_unitario,
+                    subtotal=item.subtotal,
+                    variacion_id=item.variacion_id,
+                    atributos_json=item.atributos_json,
+                ))
+
+            db.session.commit()
+
+            # Envío inmediato a SUNAT
+            try:
+                service  = MiPSEService()
+                resultado = service.procesar_venta(nc)
+                if resultado['success']:
+                    nc.estado           = 'ENVIADO'
+                    nc.fecha_envio_sunat = datetime.now()
+                    nc.mensaje_sunat    = resultado.get('message')
+                    nc.hash_cpe         = resultado.get('hash')
+                    nc.external_id      = resultado.get('external_id')
+                    guardar_archivos_mipse(nc, resultado)
+                    db.session.commit()
+                    creadas += 1
+                else:
+                    errores.append({
+                        'numero': boleta.numero_completo,
+                        'error': f'SUNAT: {resultado.get("message", "error desconocido")}'
+                    })
+            except Exception as sunat_err:
+                errores.append({'numero': boleta.numero_completo, 'error': f'SUNAT: {str(sunat_err)}'})
+
+        except Exception as e:
+            db.session.rollback()
+            errores.append({'numero': str(venta_id), 'error': str(e)})
+
+    return jsonify({'success': True, 'creadas': creadas, 'errores': errores})
+
 
 # ==================== GENERAR Y DESCARGAR PDF ====================
 
