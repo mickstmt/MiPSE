@@ -290,13 +290,24 @@ def dashboard():
     ventas_enviadas = Venta.query.filter_by(estado='ENVIADO').count()
     
     # Cálculo para Semáforo RUS (Mes actual)
+    # Boletas emitidas − Notas de Crédito (NCs restan porque anulan su boleta)
+    # BORRADOR y RECHAZADO no cuentan (no son comprobantes ante SUNAT)
     today = date.today()
     first_day = today.replace(day=1)
-    
-    total_mes = db.session.query(func.sum(Venta.total)).filter(
-        Venta.fecha_emision >= first_day
+
+    total_boletas = db.session.query(func.sum(Venta.total)).filter(
+        Venta.fecha_emision >= first_day,
+        Venta.tipo_comprobante == 'BOLETA',
+        Venta.estado.notin_(['BORRADOR', 'RECHAZADO'])
     ).scalar() or 0
-    total_mes = float(total_mes)
+
+    total_ncs = db.session.query(func.sum(Venta.total)).filter(
+        Venta.fecha_emision >= first_day,
+        Venta.tipo_comprobante == 'NOTA_CREDITO',
+        Venta.estado.notin_(['BORRADOR', 'RECHAZADO'])
+    ).scalar() or 0
+
+    total_mes = float(total_boletas) - float(total_ncs)
     
     # Límites RUS
     limite_cat1 = 5000.00
@@ -1571,14 +1582,25 @@ def bulk_upload():
                 final_orders.append(o)
         
         # Calcular Total del Mes actual para Monitor RUS
+        # Boletas emitidas − NCs (restan porque anulan su boleta)
         from sqlalchemy import func
         from datetime import date
         today = date.today()
         first_day = today.replace(day=1)
-        total_mes = db.session.query(func.sum(Venta.total)).filter(
-            Venta.fecha_emision >= first_day
+
+        _total_boletas = db.session.query(func.sum(Venta.total)).filter(
+            Venta.fecha_emision >= first_day,
+            Venta.tipo_comprobante == 'BOLETA',
+            Venta.estado.notin_(['BORRADOR', 'RECHAZADO'])
         ).scalar() or 0
-        total_mes = float(total_mes)
+
+        _total_ncs = db.session.query(func.sum(Venta.total)).filter(
+            Venta.fecha_emision >= first_day,
+            Venta.tipo_comprobante == 'NOTA_CREDITO',
+            Venta.estado.notin_(['BORRADOR', 'RECHAZADO'])
+        ).scalar() or 0
+
+        total_mes = float(_total_boletas) - float(_total_ncs)
 
         return render_template('bulk_upload_preview.html', 
                              orders=final_orders,
