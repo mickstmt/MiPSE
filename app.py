@@ -3,10 +3,10 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from config import Config
 from models import db, Usuario, Cliente, Venta, VentaItem, Categoria, Producto, Variacion, InvoiceTemplate
 from datetime import datetime
-from pdf_service import generar_pdf_html, generar_pdf_boleta
-from sunat_service import SUNATService
-from mipse_service import MiPSEService
-from scheduler_service import SchedulerService
+from services.pdf_service import generar_pdf_html, generar_pdf_boleta
+from services.sunat_service import SUNATService
+from services.mipse_service import MiPSEService
+from services.scheduler_service import SchedulerService
 import requests
 
 AUTHORIZED_EMAILS = [
@@ -1632,7 +1632,7 @@ def bulk_process():
                 
                 # 4. Enviar a SUNAT (MiPSE)
                 try:
-                    from mipse_service import MiPSEService
+                    from services.mipse_service import MiPSEService
                     from app import guardar_archivos_mipse
                     
                     service = MiPSEService()
@@ -1969,7 +1969,7 @@ def guardar_diseno():
 @login_required
 def diseno_preview_html():
     from models import Venta, VentaItem, Cliente, InvoiceTemplate
-    from pdf_service import render_template_html
+    from services.pdf_service import render_template_html
     
     # 1. Obtener una venta real para el test (o crear un mock si no hay ninguna)
     venta = Venta.query.order_by(Venta.id.desc()).first()
@@ -2009,7 +2009,7 @@ def diseno_preview_html():
 @login_required
 def diseno_preview():
     from models import Venta, VentaItem, Cliente, InvoiceTemplate
-    from pdf_service import generar_pdf_html
+    from services.pdf_service import generar_pdf_html
     
     # 1. Obtener una venta real para el test (o crear un mock si no hay ninguna)
     venta = Venta.query.order_by(Venta.fecha_emision.desc()).first()
@@ -2049,7 +2049,7 @@ from sqlalchemy import func
 @permiso_requerido('ventas.ver')
 def reporte_ganancias():
     from models import CostoProducto
-    from utils import extraer_skus_base
+    from services.utils import extraer_skus_base
     from datetime import date
 
     hoy = date.today()
@@ -2245,7 +2245,7 @@ def reporte_ganancias_importar_pedidos():
 @permiso_requerido('ventas.ver')
 def reporte_ganancias_exportar():
     from models import CostoProducto
-    from utils import extraer_skus_base
+    from services.utils import extraer_skus_base
     import pandas as pd
     from io import BytesIO
     

@@ -9,7 +9,7 @@ from reportlab.graphics.shapes import Drawing
 from datetime import datetime
 import os
 import decimal
-from utils import number_to_words_es
+from .utils import number_to_words_es
 
 def generar_pdf_boleta(venta, output_path):
     """

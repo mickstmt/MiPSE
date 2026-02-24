@@ -364,7 +364,7 @@ class MiPSEService:
 
             # Si no hay XML, necesitamos generarlo
             if not xml_string:
-                from sunat_service import SUNATService
+                from services.sunat_service import SUNATService
                 from config import Config
 
                 sunat_service = SUNATService(Config)
