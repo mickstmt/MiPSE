@@ -1130,14 +1130,13 @@ def descargar_cdr(venta_id):
 
     if not venta.cdr_path or not os.path.exists(venta.cdr_path):
         # Intentar recuperar si el estado es ENVIADO
-        if venta.estado in ['ENVIADO', 'ACEPTADO']:
-            if recuperar_documentos_mipse(venta):
-                db.session.commit()
-            else:
-                flash('El CDR no se pudo recuperar de MiPSE', 'warning')
-                return redirect(url_for('ver_venta', venta_id=venta_id))
-        else:
-            flash('El CDR no está disponible (la venta no ha sido enviada)', 'warning')
+        if venta.estado in ['ENVIADO', 'ACEPTADO', 'RECHAZADO']:
+            recuperar_documentos_mipse(venta)
+            db.session.commit()
+        # Verificar nuevamente tras intento de recuperación
+        if not venta.cdr_path or not os.path.exists(venta.cdr_path):
+            flash('El CDR no está disponible. Si acabas de redeployar, '
+                  'verifica que los volúmenes persistentes estén configurados en Easypanel.', 'warning')
             return redirect(url_for('ver_venta', venta_id=venta_id))
 
     return send_file(venta.cdr_path, as_attachment=True)
