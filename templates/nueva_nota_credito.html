@@ -137,7 +137,8 @@
 </div>
 
 <script>
-document.getElementById('btn-confirmar').addEventListener('click', function () {
+document.getElementById('btn-confirmar').addEventListener('click', function (e) {
+    e.preventDefault();
     const motivo = document.getElementById('motivo_nc_codigo');
     if (!motivo.value) {
         motivo.focus();
@@ -157,6 +158,14 @@ document.getElementById('btn-confirmar').addEventListener('click', function () {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Emitiendo Nota de Crédito...',
+                html: 'Generando XML y enviando a SUNAT.<br>Por favor espere.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
             document.getElementById('form-nc').submit();
         }
     });
