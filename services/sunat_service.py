@@ -224,7 +224,7 @@ class SUNATService:
             tax_subtotal = etree.SubElement(tax_total, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxSubtotal")
             taxable_amount = etree.SubElement(tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxableAmount")
             taxable_amount.set("currencyID", "PEN")
-            taxable_amount.text = "0.00"
+            taxable_amount.text = f"{subtotal:.2f}"  # base inafecta = total (no 0)
 
             tax_amount2 = etree.SubElement(tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxAmount")
             tax_amount2.set("currencyID", "PEN")
@@ -236,7 +236,7 @@ class SUNATService:
             tax_id.set("schemeAgencyName", "PE:SUNAT")
             tax_id.set("schemeID", "UN/ECE 5153")
             tax_id.set("schemeName", "Codigo de tributos")
-            tax_id.text = "9997"  # Inafecto
+            tax_id.text = "9998"  # Inafecto
             etree.SubElement(tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Name").text = "INA"
             etree.SubElement(tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxTypeCode").text = "FRE"
 
@@ -294,7 +294,7 @@ class SUNATService:
                 item_tax_subtotal = etree.SubElement(item_tax_total, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}TaxSubtotal")
                 item_taxable = etree.SubElement(item_tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxableAmount")
                 item_taxable.set("currencyID", "PEN")
-                item_taxable.text = "0.00"
+                item_taxable.text = f"{item_subtotal:.2f}"  # base inafecta = monto del ítem
 
                 item_tax_amt2 = etree.SubElement(item_tax_subtotal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxAmount")
                 item_tax_amt2.set("currencyID", "PEN")
@@ -313,7 +313,7 @@ class SUNATService:
                 tax_id.set("schemeAgencyName", "PE:SUNAT")
                 tax_id.set("schemeID", "UN/ECE 5153")
                 tax_id.set("schemeName", "Codigo de tributos")
-                tax_id.text = "9997"  # Inafecto
+                tax_id.text = "9998"  # Inafecto
                 etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}Name").text = "INA"
                 etree.SubElement(item_tax_scheme, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}TaxTypeCode").text = "FRE"
 
@@ -466,7 +466,7 @@ class SUNATService:
             tax_subtotal = etree.SubElement(tax_total, f"{{{cac}}}TaxSubtotal")
             taxable_amount = etree.SubElement(tax_subtotal, f"{{{cbc}}}TaxableAmount")
             taxable_amount.set("currencyID", "PEN")
-            taxable_amount.text = "0.00"
+            taxable_amount.text = f"{subtotal:.2f}"  # base inafecta = total (no 0)
             tax_amount2 = etree.SubElement(tax_subtotal, f"{{{cbc}}}TaxAmount")
             tax_amount2.set("currencyID", "PEN")
             tax_amount2.text = "0.00"
@@ -476,7 +476,7 @@ class SUNATService:
             tax_id.set("schemeAgencyName", "PE:SUNAT")
             tax_id.set("schemeID", "UN/ECE 5153")
             tax_id.set("schemeName", "Codigo de tributos")
-            tax_id.text = "9997"  # Inafecto
+            tax_id.text = "9998"  # Inafecto
             etree.SubElement(tax_scheme, f"{{{cbc}}}Name").text = "INA"
             etree.SubElement(tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "FRE"
 
@@ -529,7 +529,7 @@ class SUNATService:
                 item_tax_sub = etree.SubElement(item_tax_total, f"{{{cac}}}TaxSubtotal")
                 item_taxable = etree.SubElement(item_tax_sub, f"{{{cbc}}}TaxableAmount")
                 item_taxable.set("currencyID", "PEN")
-                item_taxable.text = "0.00"
+                item_taxable.text = f"{item_subtotal_sin_igv:.2f}"  # base inafecta = monto del ítem
                 item_tax_amt2 = etree.SubElement(item_tax_sub, f"{{{cbc}}}TaxAmount")
                 item_tax_amt2.set("currencyID", "PEN")
                 item_tax_amt2.text = "0.00"
@@ -545,7 +545,7 @@ class SUNATService:
                 ts_id.set("schemeAgencyName", "PE:SUNAT")
                 ts_id.set("schemeID", "UN/ECE 5153")
                 ts_id.set("schemeName", "Codigo de tributos")
-                ts_id.text = "9997"  # Inafecto
+                ts_id.text = "9998"  # Inafecto
                 etree.SubElement(item_tax_scheme, f"{{{cbc}}}Name").text = "INA"
                 etree.SubElement(item_tax_scheme, f"{{{cbc}}}TaxTypeCode").text = "FRE"
 
