@@ -128,75 +128,6 @@
     </div>
 </div>
 
-<!-- Modal de Resultado -->
-<div class="modal fade" id="modalResult" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 rounded-4 shadow">
-            <div class="modal-body text-center p-5">
-                <div id="processingIcon" class="mb-4">
-                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
-                </div>
-                <div id="successIcon" class="mb-4 d-none">
-                    <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center"
-                        style="width: 80px; height: 80px;">
-                        <i class="bi bi-check-lg fs-1"></i>
-                    </div>
-                </div>
-                <h3 class="fw-bold" id="modalTitle">Procesando Órdenes...</h3>
-                <p class="text-muted mb-4" id="modalMsg">Estamos enviando la información a SUNAT.</p>
-
-                <div id="progressContainer" class="mb-4">
-                    <div class="progress rounded-pill shadow-sm" style="height: 12px;">
-                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
-                            role="progressbar" style="width: 0%"></div>
-                    </div>
-                    <div class="d-flex justify-content-between mt-2 small fw-bold">
-                        <span id="progressText" class="text-primary">Iniciando...</span>
-                        <span id="progressPercent" class="text-muted">0%</span>
-                    </div>
-                </div>
-
-                <div id="statsReport" class="row mt-4 d-none">
-                    <div class="col-6">
-                        <div class="h2 fw-bold text-success mb-0" id="statOk">0</div>
-                        <div class="small text-muted text-uppercase fw-bold">Éxitos</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="h2 fw-bold text-danger mb-0" id="statError">0</div>
-                        <div class="small text-muted text-uppercase fw-bold">Errores</div>
-                    </div>
-                </div>
-
-                <div class="mt-5 d-none" id="btnGroupFinish">
-                    <a href="{{ url_for('ventas_list') }}" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3">
-                        IR A LISTA DE VENTAS
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="statsReport" class="row mt-4 d-none">
-    <div class="col-6">
-        <div class="h2 fw-bold text-success mb-0" id="statOk">0</div>
-        <div class="small text-muted text-uppercase fw-bold">Éxitos</div>
-    </div>
-    <div class="col-6">
-        <div class="h2 fw-bold text-danger mb-0" id="statError">0</div>
-        <div class="small text-muted text-uppercase fw-bold">Errores</div>
-    </div>
-</div>
-
-<div class="mt-5 d-none" id="btnGroupFinish">
-    <a href="{{ url_for('ventas_list') }}" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3">
-        IR A LISTA DE VENTAS
-    </a>
-</div>
-</div>
-</div>
-</div>
-</div>
 
 <!-- DATA HIDDEN FOR JS -->
 <div id="rusData" data-total-mes="{{ total_mes_actual }}" data-cat1="{{ rus_cat1 }}" data-cat2="{{ rus_cat2 }}">
@@ -528,4 +459,55 @@
         }
     }
 </script>
+{% endblock %}
+
+{% block modals %}
+<!-- Modal de Resultado (fuera del contenedor animado para evitar stacking context) -->
+<div class="modal fade" id="modalResult" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-body text-center p-5">
+                <div id="processingIcon" class="mb-4">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                </div>
+                <div id="successIcon" class="mb-4 d-none">
+                    <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center"
+                        style="width: 80px; height: 80px;">
+                        <i class="bi bi-check-lg fs-1"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold" id="modalTitle">Procesando Órdenes...</h3>
+                <p class="text-muted mb-4" id="modalMsg">Estamos enviando la información a SUNAT.</p>
+
+                <div id="progressContainer" class="mb-4">
+                    <div class="progress rounded-pill shadow-sm" style="height: 12px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                            role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2 small fw-bold">
+                        <span id="progressText" class="text-primary">Iniciando...</span>
+                        <span id="progressPercent" class="text-muted">0%</span>
+                    </div>
+                </div>
+
+                <div id="statsReport" class="row mt-4 d-none">
+                    <div class="col-6">
+                        <div class="h2 fw-bold text-success mb-0" id="statOk">0</div>
+                        <div class="small text-muted text-uppercase fw-bold">Éxitos</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="h2 fw-bold text-danger mb-0" id="statError">0</div>
+                        <div class="small text-muted text-uppercase fw-bold">Errores</div>
+                    </div>
+                </div>
+
+                <div class="mt-5 d-none" id="btnGroupFinish">
+                    <a href="{{ url_for('ventas_list') }}" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3">
+                        IR A LISTA DE VENTAS
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

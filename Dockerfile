@@ -36,4 +36,4 @@ ENV PYTHONUNBUFFERED=1
 
 # Comando para ejecutar la aplicación en el puerto 80
 # Reducimos a 2 workers por si el VPS tiene poca RAM
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--timeout", "600", "app:app"]
