@@ -1042,15 +1042,19 @@ def recuperar_documentos_mipse(venta):
         
         print(f" [RECOVERY] Consultando estado en MiPSE para {nombre_archivo}...")
         resultado = service.consultar_estado(nombre_archivo)
-        
+
+        print(f" [RECOVERY] success={resultado.get('success')} estado={resultado.get('estado')} tiene_cdr={bool(resultado.get('cdr'))}")
+
         if resultado.get('success'):
-            # Preparar datos para el helper de guardado
             data_files = {
                 'nombre_archivo': nombre_archivo,
                 'cdr': resultado.get('cdr'),
                 'xml_firmado': resultado.get('xml_firmado') or resultado.get('data', {}).get('xml')
             }
-            return guardar_archivos_mipse(venta, data_files)
+            saved = guardar_archivos_mipse(venta, data_files)
+            print(f" [RECOVERY] guardar_archivos_mipse={saved} cdr_path={venta.cdr_path}")
+            return saved
+        print(f" [RECOVERY] ❌ MiPSE no devolvió éxito: {resultado.get('error') or resultado.get('mensaje')}")
         return False
     except Exception as e:
         print(f" [RECOVERY] ❌ Error recuperando documentos: {str(e)}")

@@ -313,14 +313,19 @@ class MiPSEService:
 
             if response.status_code == 200:
                 data = response.json()
+                print(f"[MiPSE] Consulta response body: {str(data)[:500]}")
+                # Considerar exitoso si estado==200 O si hay CDR en la respuesta
+                has_cdr = bool(data.get('cdr'))
+                is_ok = data.get('estado') == 200 or has_cdr
                 return {
-                    'success': data.get('estado') == 200,
+                    'success': is_ok,
                     'estado': data.get('estado'),
                     'mensaje': data.get('mensaje'),
                     'cdr': data.get('cdr'),
                     'data': data
                 }
             else:
+                print(f"[MiPSE] Consulta error body: {response.text[:300]}")
                 return {
                     'success': False,
                     'error': f"Error {response.status_code}: {response.text}"
