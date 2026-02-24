@@ -1511,13 +1511,18 @@ def bulk_upload():
                 
                 if not order_num: continue
                 
-                # Omitir si la orden ya existe en el sistema
+                # Omitir si la orden ya tiene boleta activa (sin NC que la anule)
                 if order_num not in orders_dict:
-                    existe = Venta.query.filter_by(numero_orden=order_num).first()
-                    if existe:
-                        # Marcamos como ignorada internamente para no procesar sus filas
+                    boleta_activa = Venta.query.filter(
+                        Venta.numero_orden == order_num,
+                        Venta.tipo_comprobante == 'BOLETA',
+                        ~Venta.notas_credito.any()
+                    ).first()
+                    if boleta_activa:
+                        # Boleta vigente → ignorar
                         orders_dict[order_num] = "EXISTE"
                         continue
+                    # Si solo existen boletas anuladas (con NC) se permite reimportar
                 
                 if orders_dict.get(order_num) == "EXISTE":
                     continue
@@ -1652,10 +1657,14 @@ def bulk_process():
         
         for o in orders:
             try:
-                # 0. Verificación de seguridad de último segundo (Duplicados)
-                existe = Venta.query.filter_by(numero_orden=o['order_num']).first()
-                if existe:
-                    results['success'] += 1 # Contamos como procesado si ya existe
+                # 0. Verificación de seguridad: omitir solo si existe boleta activa (sin NC)
+                boleta_activa = Venta.query.filter(
+                    Venta.numero_orden == o['order_num'],
+                    Venta.tipo_comprobante == 'BOLETA',
+                    ~Venta.notas_credito.any()
+                ).first()
+                if boleta_activa:
+                    results['success'] += 1  # Boleta vigente, ya procesada
                     continue
 
                 # 1. Buscar o Crear Cliente (Inteligente con API)
