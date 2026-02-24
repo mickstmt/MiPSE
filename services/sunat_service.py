@@ -175,6 +175,10 @@ class SUNATService:
             # Dirección
             postal_addr = etree.SubElement(supplier_party, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}PostalAddress")
             etree.SubElement(postal_addr, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}ID").text = self.ubigeo
+            addr_type = etree.SubElement(postal_addr, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}AddressTypeCode")
+            addr_type.set("listAgencyName", "PE:SUNAT")
+            addr_type.set("listName", "Establecimientos anexos")
+            addr_type.text = "0000"
             etree.SubElement(postal_addr, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}StreetName").text = self.direccion
 
             country = etree.SubElement(postal_addr, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}Country")
@@ -433,6 +437,10 @@ class SUNATService:
             etree.SubElement(party_name, f"{{{cbc}}}Name").text = self.config.EMPRESA_NOMBRE_COMERCIAL
             postal_addr = etree.SubElement(supplier_party, f"{{{cac}}}PostalAddress")
             etree.SubElement(postal_addr, f"{{{cbc}}}ID").text = self.ubigeo
+            addr_type = etree.SubElement(postal_addr, f"{{{cbc}}}AddressTypeCode")
+            addr_type.set("listAgencyName", "PE:SUNAT")
+            addr_type.set("listName", "Establecimientos anexos")
+            addr_type.text = "0000"
             etree.SubElement(postal_addr, f"{{{cbc}}}StreetName").text = self.direccion
             country = etree.SubElement(postal_addr, f"{{{cac}}}Country")
             etree.SubElement(country, f"{{{cbc}}}IdentificationCode").text = "PE"
