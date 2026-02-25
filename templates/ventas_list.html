@@ -614,12 +614,14 @@
             fetch('{{ url_for("recuperar_cdrs_masivo") }}', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
+                    const noDisp = data.fallidos > 0
+                        ? `<br><strong>${data.fallidos}</strong> no encontrados en API de MiPSE<br><small class="text-muted">(MiPSE no almacena documentos históricos vía API — descárgalos manualmente desde el portal de MiPSE)</small>`
+                        : '';
                     Swal.fire({
                         icon: data.recuperados > 0 ? 'success' : 'info',
                         title: 'Recuperación completada',
-                        html: `<strong>${data.recuperados}</strong> CDR(s) recuperados<br>
-                               <strong>${data.fallidos}</strong> no disponibles en MiPSE<br>
-                               <strong>${data.omitidos}</strong> ya existían localmente`
+                        html: `<strong>${data.recuperados}</strong> recuperado(s) exitosamente<br>
+                               <strong>${data.omitidos}</strong> ya existían localmente${noDisp}`
                     });
                 })
                 .catch(() => Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error'));
