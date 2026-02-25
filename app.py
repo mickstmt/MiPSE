@@ -1349,9 +1349,19 @@ def scheduler_ejecutar_ahora():
 @app.route('/admin/ventas/recuperar-cdrs', methods=['POST'])
 @login_required
 def recuperar_cdrs_masivo():
-    """Intenta recuperar desde MiPSE todos los CDRs que faltan en disco"""
+    """Intenta recuperar desde MiPSE los CDRs/XMLs que faltan en disco.
+    Solo boletas activas (sin NC emitida) — excluye boletas anuladas y NCs."""
+    # IDs de boletas que ya tienen una NC activa (anuladas)
+    ids_anuladas = db.session.query(Venta.venta_referencia_id).filter(
+        Venta.tipo_comprobante == 'NOTA_CREDITO',
+        Venta.venta_referencia_id.isnot(None),
+        Venta.estado.in_(['ENVIADO', 'ACEPTADO'])
+    ).subquery()
+
     ventas = Venta.query.filter(
-        Venta.estado.in_(['ENVIADO', 'ACEPTADO', 'RECHAZADO'])
+        Venta.estado.in_(['ENVIADO', 'ACEPTADO', 'RECHAZADO']),
+        Venta.tipo_comprobante == 'BOLETA',
+        ~Venta.id.in_(ids_anuladas)
     ).all()
 
     recuperados = 0
@@ -1359,7 +1369,9 @@ def recuperar_cdrs_masivo():
     omitidos = 0
 
     for venta in ventas:
-        if venta.cdr_path and os.path.exists(venta.cdr_path):
+        cdr_ok = venta.cdr_path and os.path.exists(venta.cdr_path)
+        xml_ok = venta.xml_path and os.path.exists(venta.xml_path)
+        if cdr_ok and xml_ok:
             omitidos += 1
             continue
         if recuperar_documentos_mipse(venta):
