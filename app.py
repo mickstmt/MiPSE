@@ -1113,15 +1113,26 @@ def descargar_xml(venta_id):
     venta = Venta.query.get_or_404(venta_id)
 
     if not venta.xml_path or not os.path.exists(venta.xml_path):
-        # Intentar recuperar si el estado es ENVIADO
-        if venta.estado in ['ENVIADO', 'ACEPTADO']:
-            if recuperar_documentos_mipse(venta):
-                db.session.commit()
+        # Regenerar XML desde los datos de la venta (no requiere MiPSE)
+        try:
+            from services.sunat_service import SUNATService
+            from config import Config
+            from io import BytesIO
+            sunat_service = SUNATService(Config)
+            if venta.tipo_comprobante == 'NOTA_CREDITO':
+                _, xml_string = sunat_service.generar_xml_nota_credito(venta)
             else:
-                flash('El XML no se pudo recuperar de MiPSE', 'warning')
-                return redirect(url_for('ver_venta', venta_id=venta_id))
-        else:
-            flash('El XML no está disponible (la venta no ha sido enviada)', 'warning')
+                _, xml_string = sunat_service.generar_xml_boleta(venta)
+
+            if not xml_string:
+                raise Exception("generar_xml retornó vacío")
+
+            xml_bytes = xml_string.encode('utf-8') if isinstance(xml_string, str) else xml_string
+            nombre = f"{venta.numero_completo}.xml"
+            return send_file(BytesIO(xml_bytes), as_attachment=True,
+                             download_name=nombre, mimetype='application/xml')
+        except Exception as e:
+            flash(f'No se pudo generar el XML: {str(e)}', 'warning')
             return redirect(url_for('ver_venta', venta_id=venta_id))
 
     return send_file(venta.xml_path, as_attachment=True)
