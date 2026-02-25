@@ -1351,7 +1351,6 @@ def scheduler_ejecutar_ahora():
 def importar_cdrs():
     """Importa CDRs descargados manualmente desde el portal MiPSE"""
     if request.method == 'POST':
-        import xml.etree.ElementTree as ET
         files = request.files.getlist('cdrs')
         if not files:
             return jsonify({'success': False, 'error': 'No se enviaron archivos'}), 400
@@ -1366,34 +1365,40 @@ def importar_cdrs():
                 continue
             try:
                 content = f.read()
-                # Parsear CDR XML para extraer serie-correlativo del DocumentReference
-                tree = ET.fromstring(content)
-                doc_id = None
-                for elem in tree.iter():
-                    tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-                    if tag == 'ID' and elem.text:
-                        val = elem.text.strip()
-                        # Formato esperado: B001-123 o BC01-123
-                        parts = val.split('-')
-                        if len(parts) == 2 and len(parts[0]) >= 4 and parts[1].isdigit():
-                            doc_id = val
-                            break
+                basename = os.path.splitext(f.filename)[0]  # e.g. 10433050709-03-B001-00000123
 
-                if not doc_id:
-                    errores.append(f"{f.filename}: No se pudo identificar el número de documento en el XML")
+                # Estrategia 1: parsear desde el nombre del archivo (formato MiPSE estándar)
+                # Formato esperado: {RUC}-{tipo}-{serie}-{correlativo}
+                serie = None
+                correlativo_str = None
+                parts = basename.split('-')
+                if len(parts) == 4 and parts[2][0].isalpha():
+                    # partes: [RUC, tipo, serie, correlativo]
+                    serie = parts[2]           # 'B001'
+                    correlativo_str = parts[3] # '00000123'
+                elif len(parts) >= 2:
+                    # Fallback: asumir que los últimos dos segmentos son serie-correlativo
+                    serie = parts[-2]
+                    correlativo_str = parts[-1]
+
+                if not serie or not correlativo_str or not correlativo_str.isdigit():
+                    errores.append(f"{f.filename}: No se pudo identificar serie/correlativo del nombre del archivo")
                     continue
 
-                serie, correlativo_str = doc_id.rsplit('-', 1)
-                correlativo = int(correlativo_str)
+                correlativo_int = int(correlativo_str)
 
-                venta = Venta.query.filter_by(serie=serie, correlativo=str(correlativo)).first()
+                # Buscar venta probando con y sin ceros (la DB puede tener '123' o '00000123')
+                venta = (
+                    Venta.query.filter_by(serie=serie, correlativo=str(correlativo_int)).first() or
+                    Venta.query.filter_by(serie=serie, correlativo=correlativo_str).first()
+                )
                 if not venta:
-                    errores.append(f"{f.filename}: No se encontró comprobante {doc_id} en la base de datos")
+                    errores.append(f"{f.filename}: No se encontró comprobante {serie}-{correlativo_str} en la base de datos")
                     continue
 
                 # Guardar con naming convention estándar
                 tipo_doc = "07" if venta.tipo_comprobante == 'NOTA_CREDITO' else ("01" if serie.startswith('F') else "03")
-                correlativo_fmt = str(correlativo).zfill(8)
+                correlativo_fmt = str(correlativo_int).zfill(8)
                 nombre_base = f"{app.config['EMPRESA_RUC']}-{tipo_doc}-{serie}-{correlativo_fmt}"
                 cdr_path = os.path.join(folder, f"R-{nombre_base}.xml")
 
@@ -1402,7 +1407,7 @@ def importar_cdrs():
 
                 venta.cdr_path = cdr_path
                 importados += 1
-                print(f" [CDR-IMPORT] ✅ {doc_id} → {cdr_path}")
+                print(f" [CDR-IMPORT] ✅ {serie}-{correlativo_str} → {cdr_path}")
 
             except Exception as e:
                 errores.append(f"{f.filename}: {str(e)}")
