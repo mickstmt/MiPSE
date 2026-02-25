@@ -489,11 +489,16 @@ def ventas_list():
     q = request.args.get('q', '').strip()
     fecha_desde = request.args.get('fecha_desde', '')
     fecha_hasta = request.args.get('fecha_hasta', '')
+    tipo_comprobante = request.args.get('tipo_comprobante', '')
     sort = request.args.get('sort', '')
     sort_dir = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
 
     query = Venta.query.join(Venta.cliente)
+
+    # Filtro por tipo de comprobante
+    if tipo_comprobante in ('BOLETA', 'NOTA_CREDITO'):
+        query = query.filter(Venta.tipo_comprobante == tipo_comprobante)
 
     # Filtros de texto
     if q:
@@ -562,6 +567,7 @@ def ventas_list():
     return render_template('ventas_list.html', ventas=ventas,
                            q=q, tipo_filtro=tipo_filtro,
                            fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+                           tipo_comprobante=tipo_comprobante,
                            total_resultados=total_resultados,
                            pagination=pagination,
                            sort=sort, sort_dir=sort_dir,

@@ -18,10 +18,27 @@
     </div>
 </div>
 
+<!-- ====== FILTRO RÁPIDO POR TIPO ====== -->
+<div class="d-flex gap-2 mb-3">
+    <a href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=sort, dir=sort_dir) }}"
+       class="btn rounded-pill px-4 fw-semibold {{ 'btn-primary' if not tipo_comprobante else 'btn-outline-secondary' }}">
+        <i class="bi bi-list me-1"></i> Todas
+    </a>
+    <a href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=sort, dir=sort_dir, tipo_comprobante='BOLETA') }}"
+       class="btn rounded-pill px-4 fw-semibold {{ 'btn-primary' if tipo_comprobante == 'BOLETA' else 'btn-outline-secondary' }}">
+        <i class="bi bi-receipt me-1"></i> Boletas
+    </a>
+    <a href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=sort, dir=sort_dir, tipo_comprobante='NOTA_CREDITO') }}"
+       class="btn rounded-pill px-4 fw-semibold {{ 'btn-primary' if tipo_comprobante == 'NOTA_CREDITO' else 'btn-outline-secondary' }}">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> Notas de Crédito
+    </a>
+</div>
+
 <!-- ====== PANEL DE BÚSQUEDA Y FILTROS ====== -->
 <div class="card border-0 shadow-sm rounded-4 mb-4">
     <div class="card-body p-3">
         <form method="GET" action="{{ url_for('ventas_list') }}" id="search-form">
+            <input type="hidden" name="tipo_comprobante" value="{{ tipo_comprobante }}">
             <div class="row g-2 align-items-end">
 
                 <!-- Selector de tipo de filtro -->
@@ -76,7 +93,7 @@
                         <i class="bi bi-search me-1"></i> Buscar
                     </button>
                     {% if q or fecha_desde or fecha_hasta %}
-                    <a href="{{ url_for('ventas_list') }}" class="btn btn-outline-secondary rounded-pill px-3"
+                    <a href="{{ url_for('ventas_list', tipo_comprobante=tipo_comprobante) }}" class="btn btn-outline-secondary rounded-pill px-3"
                         title="Limpiar búsqueda">
                         <i class="bi bi-x-lg"></i>
                     </a>
@@ -85,11 +102,14 @@
             </div>
 
             <!-- Resumen de resultados -->
-            {% if q or fecha_desde or fecha_hasta %}
-            <div class="mt-2 pt-2 border-top d-flex align-items-center gap-2">
+            {% if q or fecha_desde or fecha_hasta or tipo_comprobante %}
+            <div class="mt-2 pt-2 border-top d-flex align-items-center gap-2 flex-wrap">
                 <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 fw-semibold">
                     <i class="bi bi-list-check me-1"></i> {{ total_resultados }} resultado(s)
                 </span>
+                {% if tipo_comprobante %}
+                <span class="text-muted small">Tipo: <strong>{{ 'Boletas' if tipo_comprobante == 'BOLETA' else 'Notas de Crédito' }}</strong></span>
+                {% endif %}
                 {% if q %}<span class="text-muted small">Búsqueda: <strong>"{{ q }}"</strong></span>{% endif %}
                 {% if fecha_desde or fecha_hasta %}
                 <span class="text-muted small">
@@ -138,15 +158,15 @@
 
 {% macro sort_th(label, col, extra_class='') %}
 {% if sort == col and sort_dir == 'desc' %}
-    {% set next_href = url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=col, dir='asc', page=1) %}
+    {% set next_href = url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, tipo_comprobante=tipo_comprobante, sort=col, dir='asc', page=1) %}
     {% set is_active = true %}
     {% set icon_class = 'bi-arrow-down' %}
 {% elif sort == col and sort_dir == 'asc' %}
-    {% set next_href = url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, page=1) %}
+    {% set next_href = url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, tipo_comprobante=tipo_comprobante, page=1) %}
     {% set is_active = true %}
     {% set icon_class = 'bi-arrow-up' %}
 {% else %}
-    {% set next_href = url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=col, dir='desc', page=1) %}
+    {% set next_href = url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, tipo_comprobante=tipo_comprobante, sort=col, dir='desc', page=1) %}
     {% set is_active = false %}
     {% set icon_class = 'bi-arrow-down-up' %}
 {% endif %}
@@ -282,7 +302,7 @@
             <ul class="pagination pagination-sm mb-0 gap-1">
                 <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
                     <a class="page-link rounded-3 border-0 {{ 'text-muted' if not pagination.has_prev }}"
-                       href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=sort, dir=sort_dir, page=pagination.prev_num) if pagination.has_prev else '#' }}">
+                       href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, tipo_comprobante=tipo_comprobante, sort=sort, dir=sort_dir, page=pagination.prev_num) if pagination.has_prev else '#' }}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                 </li>
@@ -290,7 +310,7 @@
                     {% if p %}
                         <li class="page-item {{ 'active' if p == pagination.page }}">
                             <a class="page-link rounded-3 border-0 fw-semibold"
-                               href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=sort, dir=sort_dir, page=p) }}">
+                               href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, tipo_comprobante=tipo_comprobante, sort=sort, dir=sort_dir, page=p) }}">
                                 {{ p }}
                             </a>
                         </li>
@@ -300,7 +320,7 @@
                 {% endfor %}
                 <li class="page-item {{ 'disabled' if not pagination.has_next }}">
                     <a class="page-link rounded-3 border-0 {{ 'text-muted' if not pagination.has_next }}"
-                       href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, sort=sort, dir=sort_dir, page=pagination.next_num) if pagination.has_next else '#' }}">
+                       href="{{ url_for('ventas_list', q=q, tipo_filtro=tipo_filtro, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, tipo_comprobante=tipo_comprobante, sort=sort, dir=sort_dir, page=pagination.next_num) if pagination.has_next else '#' }}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </li>
