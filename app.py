@@ -1360,13 +1360,17 @@ def scheduler_ejecutar_ahora():
 @app.route('/admin/ventas/importar-cdrs', methods=['GET', 'POST'])
 @login_required
 def importar_cdrs():
-    """Importa CDRs descargados manualmente desde el portal MiPSE"""
+    """Importa CDRs y XMLs firmados descargados manualmente desde el portal MiPSE.
+    - Archivos con prefijo R- → CDR  → actualiza venta.cdr_path
+    - Resto de archivos XML  → XML firmado → actualiza venta.xml_path
+    """
     if request.method == 'POST':
         files = request.files.getlist('cdrs')
         if not files:
             return jsonify({'success': False, 'error': 'No se enviaron archivos'}), 400
 
-        importados = 0
+        cdrs_importados = 0
+        xmls_importados = 0
         errores = []
         folder = app.config.get('COMPROBANTES_PATH', 'comprobantes')
         os.makedirs(folder, exist_ok=True)
@@ -1376,59 +1380,69 @@ def importar_cdrs():
                 continue
             try:
                 content = f.read()
-                basename = os.path.splitext(f.filename)[0]  # e.g. 10433050709-03-B001-00000123
+                filename = f.filename
+                is_cdr = filename.startswith('R-')
 
-                # Estrategia 1: parsear desde el nombre del archivo (formato MiPSE estándar)
-                # Formato esperado: {RUC}-{tipo}-{serie}-{correlativo}
+                # Quitar prefijo R- para parsear el nombre base
+                basename = os.path.splitext(filename[2:] if is_cdr else filename)[0]
+
+                # Extraer serie y correlativo del nombre: {RUC}-{tipo}-{serie}-{correlativo}
+                parts = basename.split('-')
                 serie = None
                 correlativo_str = None
-                parts = basename.split('-')
                 if len(parts) == 4 and parts[2][0].isalpha():
-                    # partes: [RUC, tipo, serie, correlativo]
-                    serie = parts[2]           # 'B001'
-                    correlativo_str = parts[3] # '00000123'
+                    serie = parts[2]
+                    correlativo_str = parts[3]
                 elif len(parts) >= 2:
-                    # Fallback: asumir que los últimos dos segmentos son serie-correlativo
                     serie = parts[-2]
                     correlativo_str = parts[-1]
 
                 if not serie or not correlativo_str or not correlativo_str.isdigit():
-                    errores.append(f"{f.filename}: No se pudo identificar serie/correlativo del nombre del archivo")
+                    errores.append(f"{filename}: No se pudo identificar serie/correlativo del nombre del archivo")
                     continue
 
                 correlativo_int = int(correlativo_str)
 
-                # Buscar venta probando con y sin ceros (la DB puede tener '123' o '00000123')
+                # Buscar venta (con y sin ceros)
                 venta = (
                     Venta.query.filter_by(serie=serie, correlativo=str(correlativo_int)).first() or
                     Venta.query.filter_by(serie=serie, correlativo=correlativo_str).first()
                 )
                 if not venta:
-                    errores.append(f"{f.filename}: No se encontró comprobante {serie}-{correlativo_str} en la base de datos")
+                    errores.append(f"{filename}: No se encontró comprobante {serie}-{correlativo_str} en la base de datos")
                     continue
 
-                # Guardar con naming convention estándar
                 tipo_doc = "07" if venta.tipo_comprobante == 'NOTA_CREDITO' else ("01" if serie.startswith('F') else "03")
                 correlativo_fmt = str(correlativo_int).zfill(8)
                 nombre_base = f"{app.config['EMPRESA_RUC']}-{tipo_doc}-{serie}-{correlativo_fmt}"
-                cdr_path = os.path.join(folder, f"R-{nombre_base}.xml")
 
-                with open(cdr_path, 'wb') as out:
-                    out.write(content)
-
-                venta.cdr_path = cdr_path
-                importados += 1
-                print(f" [CDR-IMPORT] ✅ {serie}-{correlativo_str} → {cdr_path}")
+                if is_cdr:
+                    dest_path = os.path.join(folder, f"R-{nombre_base}.xml")
+                    with open(dest_path, 'wb') as out:
+                        out.write(content)
+                    venta.cdr_path = dest_path
+                    cdrs_importados += 1
+                    print(f" [IMPORT] ✅ CDR {serie}-{correlativo_str} → {dest_path}")
+                else:
+                    dest_path = os.path.join(folder, f"{nombre_base}.xml")
+                    with open(dest_path, 'wb') as out:
+                        out.write(content)
+                    venta.xml_path = dest_path
+                    xmls_importados += 1
+                    print(f" [IMPORT] ✅ XML {serie}-{correlativo_str} → {dest_path}")
 
             except Exception as e:
                 errores.append(f"{f.filename}: {str(e)}")
 
         db.session.commit()
+        total = cdrs_importados + xmls_importados
         return jsonify({
             'success': True,
-            'importados': importados,
+            'importados': total,
+            'cdrs_importados': cdrs_importados,
+            'xmls_importados': xmls_importados,
             'errores': errores,
-            'message': f'{importados} CDR(s) importados correctamente.'
+            'message': f'{total} archivo(s) importados ({cdrs_importados} CDRs, {xmls_importados} XMLs).'
         })
 
     return render_template('importar_cdrs.html')

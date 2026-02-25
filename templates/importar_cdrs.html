@@ -146,11 +146,14 @@
                     html += `
                     <div class="d-flex align-items-center gap-2 mb-3">
                         <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        <h5 class="fw-bold mb-0">${data.importados} CDR(s) importados correctamente</h5>
+                        <h5 class="fw-bold mb-0">${data.importados} archivo(s) importados correctamente</h5>
                     </div>
                     <div class="alert alert-success rounded-3 mb-3">
-                        Los archivos fueron guardados en el servidor y vinculados a sus ventas.
-                        Ahora puedes descargarlos desde el detalle de cada venta.
+                        <div class="d-flex gap-4">
+                            <span><i class="bi bi-shield-check me-1"></i><strong>${data.cdrs_importados}</strong> CDR(s)</span>
+                            <span><i class="bi bi-file-code me-1"></i><strong>${data.xmls_importados}</strong> XML(s) firmado(s)</span>
+                        </div>
+                        <div class="mt-2 small">Guardados en el servidor y vinculados a sus ventas. Ya puedes descargarlos desde el detalle de cada venta.</div>
                     </div>`;
                 }
 
