@@ -13,26 +13,27 @@
     <div class="card-body p-4">
         <p class="text-muted mb-1">Sube los CDRs descargados desde el portal de MiPSE. El sistema los vinculará automáticamente a cada venta.</p>
         <p class="text-muted small mb-4">
-            <i class="bi bi-info-circle me-1"></i>
-            Solo archivos <strong>.xml</strong>. Puedes seleccionar múltiples archivos a la vez.
+            <i class="bi bi-info-circle me-1 text-primary"></i>
+            Solo archivos <strong>.xml</strong>. Puedes seleccionar o arrastrar múltiples archivos a la vez.
         </p>
 
+        <input type="file" id="fileInput" multiple accept=".xml" class="d-none">
+
         <!-- Drop zone -->
-        <div id="dropZone" class="border border-2 border-dashed rounded-4 p-5 text-center mb-4"
-             style="border-color: #dee2e6; cursor: pointer; transition: all .2s;">
+        <div id="dropZone" class="rounded-4 p-5 text-center mb-4"
+             style="border: 2px dashed #adb5bd; cursor: pointer; transition: background .2s, border-color .2s;">
             <i class="bi bi-file-earmark-arrow-up text-primary" style="font-size: 3rem;"></i>
-            <p class="fw-semibold mt-3 mb-1">Arrastra los archivos aquí</p>
-            <p class="text-muted small mb-3">o haz click para seleccionarlos</p>
-            <input type="file" id="fileInput" multiple accept=".xml" class="d-none">
-            <button type="button" class="btn btn-primary rounded-pill px-4" onclick="document.getElementById('fileInput').click()">
+            <p class="fw-semibold mt-3 mb-1">Arrastra los archivos XML aquí</p>
+            <p class="text-muted small mb-3">o haz click en esta zona para seleccionarlos</p>
+            <span class="btn btn-primary rounded-pill px-4 pe-none">
                 <i class="bi bi-folder-open me-1"></i> Seleccionar archivos
-            </button>
+            </span>
         </div>
 
         <!-- Lista de archivos seleccionados -->
         <div id="fileList" class="d-none mb-4">
-            <h6 class="fw-semibold mb-2">Archivos seleccionados:</h6>
-            <ul id="fileNames" class="list-group list-group-flush rounded-3 border"></ul>
+            <h6 class="fw-semibold mb-2" id="fileCount"></h6>
+            <ul id="fileNames" class="list-group list-group-flush rounded-3 border" style="max-height:200px;overflow-y:auto;"></ul>
         </div>
 
         <button id="btnImportar" class="btn btn-success rounded-pill px-5 fw-semibold d-none" onclick="importarCDRs()">
@@ -41,53 +42,78 @@
     </div>
 </div>
 
-<!-- Resultado -->
+<!-- Resultado (aparece tras importar) -->
 <div id="resultado" class="d-none">
     <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body p-4">
-            <h5 class="fw-bold mb-3" id="resultTitle"></h5>
-            <div id="resultBody"></div>
-        </div>
+        <div class="card-body p-4" id="resultBody"></div>
     </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
     let selectedFiles = [];
-
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
 
+    // Click en toda la zona abre el selector
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Drag over
     dropZone.addEventListener('dragover', e => {
         e.preventDefault();
+        e.stopPropagation();
         dropZone.style.borderColor = '#0d6efd';
         dropZone.style.background = '#f0f5ff';
     });
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.borderColor = '#dee2e6';
+
+    // Drag leave
+    dropZone.addEventListener('dragleave', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.style.borderColor = '#adb5bd';
         dropZone.style.background = '';
     });
+
+    // Drop
     dropZone.addEventListener('drop', e => {
         e.preventDefault();
-        dropZone.style.borderColor = '#dee2e6';
+        e.stopPropagation();
+        dropZone.style.borderColor = '#adb5bd';
         dropZone.style.background = '';
         handleFiles(e.dataTransfer.files);
     });
+
+    // Selección por input
     fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 
     function handleFiles(files) {
-        selectedFiles = Array.from(files).filter(f => f.name.endsWith('.xml'));
+        const xmlFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.xml'));
+        const ignored = files.length - xmlFiles.length;
+        selectedFiles = xmlFiles;
+
         const list = document.getElementById('fileNames');
         list.innerHTML = '';
-        selectedFiles.forEach(f => {
-            list.innerHTML += `<li class="list-group-item py-2 small">
-                <i class="bi bi-file-earmark-code text-primary me-2"></i>${f.name}
-                <span class="text-muted ms-2">(${(f.size/1024).toFixed(1)} KB)</span>
+
+        if (xmlFiles.length === 0) {
+            document.getElementById('fileList').classList.add('d-none');
+            document.getElementById('btnImportar').classList.add('d-none');
+            if (ignored > 0) Swal.fire('Formato incorrecto', 'Solo se aceptan archivos .xml', 'warning');
+            return;
+        }
+
+        xmlFiles.forEach(f => {
+            list.innerHTML += `<li class="list-group-item py-2 small d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-code text-primary"></i>
+                <span class="flex-fill">${f.name}</span>
+                <span class="text-muted">${(f.size / 1024).toFixed(1)} KB</span>
             </li>`;
         });
-        document.getElementById('fileList').classList.toggle('d-none', selectedFiles.length === 0);
-        document.getElementById('btnImportar').classList.toggle('d-none', selectedFiles.length === 0);
+
+        document.getElementById('fileCount').textContent = `${xmlFiles.length} archivo(s) seleccionado(s)${ignored ? ` (${ignored} ignorado(s) por no ser .xml)` : ''}`;
+        document.getElementById('fileList').classList.remove('d-none');
+        document.getElementById('btnImportar').classList.remove('d-none');
+        document.getElementById('resultado').classList.add('d-none');
     }
 
     function importarCDRs() {
@@ -95,7 +121,7 @@
 
         Swal.fire({
             title: 'Importando CDRs...',
-            html: `Procesando <strong>${selectedFiles.length}</strong> archivo(s). Por favor espere.`,
+            html: `Procesando <strong>${selectedFiles.length}</strong> archivo(s).<br>Por favor espere.`,
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
@@ -109,34 +135,61 @@
             .then(r => r.json())
             .then(data => {
                 Swal.close();
-                const res = document.getElementById('resultado');
-                const title = document.getElementById('resultTitle');
-                const body = document.getElementById('resultBody');
 
+                const res = document.getElementById('resultado');
+                const body = document.getElementById('resultBody');
                 res.classList.remove('d-none');
-                title.innerHTML = `<i class="bi bi-check-circle text-success me-2"></i>${data.importados} CDR(s) importados correctamente`;
 
                 let html = '';
+
                 if (data.importados > 0) {
-                    html += `<div class="alert alert-success rounded-3">
-                        <strong>${data.importados}</strong> CDR(s) vinculados a sus ventas y guardados en el servidor.
+                    html += `
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                        <h5 class="fw-bold mb-0">${data.importados} CDR(s) importados correctamente</h5>
+                    </div>
+                    <div class="alert alert-success rounded-3 mb-3">
+                        Los archivos fueron guardados en el servidor y vinculados a sus ventas.
+                        Ahora puedes descargarlos desde el detalle de cada venta.
                     </div>`;
                 }
+
                 if (data.errores && data.errores.length > 0) {
-                    html += `<div class="alert alert-warning rounded-3">
-                        <strong>${data.errores.length}</strong> archivo(s) no se pudieron importar:<br>
-                        <ul class="mb-0 mt-2 small">${data.errores.map(e => `<li>${e}</li>`).join('')}</ul>
+                    html += `
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                        <h6 class="fw-bold mb-0">${data.errores.length} archivo(s) no se pudieron importar</h6>
+                    </div>
+                    <ul class="list-group list-group-flush rounded-3 border">
+                        ${data.errores.map(e => `<li class="list-group-item small py-2">
+                            <i class="bi bi-x-circle text-danger me-2"></i>${e}
+                        </li>`).join('')}
+                    </ul>`;
+                }
+
+                if (data.importados === 0 && (!data.errores || data.errores.length === 0)) {
+                    html = `<div class="text-muted text-center py-3">
+                        <i class="bi bi-info-circle fs-4 d-block mb-2"></i>No se procesó ningún archivo.
                     </div>`;
                 }
+
                 body.innerHTML = html;
 
                 // Reset
                 selectedFiles = [];
+                fileInput.value = '';
                 document.getElementById('fileList').classList.add('d-none');
                 document.getElementById('btnImportar').classList.add('d-none');
                 document.getElementById('fileNames').innerHTML = '';
+                res.scrollIntoView({ behavior: 'smooth' });
             })
-            .catch(() => Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error'));
+            .catch(err => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor. Intenta nuevamente.'
+                });
+            });
     }
 </script>
 {% endblock %}
