@@ -1282,8 +1282,8 @@ def enviar_lote():
                     venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
                     venta.codigo_sunat = rc
                     venta.fecha_envio_sunat = datetime.utcnow()
-                    venta.cdr_path = resultado.get('cdr_path')
                     venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
+                    guardar_archivos_mipse(venta, resultado)
                     enviadas += 1
                 else:
                     errores.append(f"{venta.numero_completo}: {resultado.get('message', 'Error desconocido')}")

@@ -64,8 +64,12 @@ class SchedulerService:
                             venta.estado = 'RECHAZADO' if (rc.startswith('3') or rc.startswith('4')) else 'ENVIADO'
                             venta.codigo_sunat = rc
                             venta.fecha_envio_sunat = datetime.utcnow()
-                            venta.cdr_path = resultado.get('cdr_path')
                             venta.mensaje_sunat = resultado.get('response_description') or resultado.get('message')
+                            try:
+                                from app import guardar_archivos_mipse
+                                guardar_archivos_mipse(venta, resultado)
+                            except Exception as fe:
+                                logger.error(f"Error guardando archivos para {venta.numero_completo}: {fe}")
                             enviadas += 1
                             logger.info(f"✓ Venta {venta.numero_completo} enviada exitosamente")
                         else:
