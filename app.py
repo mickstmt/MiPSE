@@ -1346,6 +1346,78 @@ def scheduler_ejecutar_ahora():
         }), 500
 
 
+@app.route('/admin/ventas/importar-cdrs', methods=['GET', 'POST'])
+@login_required
+def importar_cdrs():
+    """Importa CDRs descargados manualmente desde el portal MiPSE"""
+    if request.method == 'POST':
+        import xml.etree.ElementTree as ET
+        files = request.files.getlist('cdrs')
+        if not files:
+            return jsonify({'success': False, 'error': 'No se enviaron archivos'}), 400
+
+        importados = 0
+        errores = []
+        folder = app.config.get('COMPROBANTES_PATH', 'comprobantes')
+        os.makedirs(folder, exist_ok=True)
+
+        for f in files:
+            if not f.filename:
+                continue
+            try:
+                content = f.read()
+                # Parsear CDR XML para extraer serie-correlativo del DocumentReference
+                tree = ET.fromstring(content)
+                doc_id = None
+                for elem in tree.iter():
+                    tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                    if tag == 'ID' and elem.text:
+                        val = elem.text.strip()
+                        # Formato esperado: B001-123 o BC01-123
+                        parts = val.split('-')
+                        if len(parts) == 2 and len(parts[0]) >= 4 and parts[1].isdigit():
+                            doc_id = val
+                            break
+
+                if not doc_id:
+                    errores.append(f"{f.filename}: No se pudo identificar el número de documento en el XML")
+                    continue
+
+                serie, correlativo_str = doc_id.rsplit('-', 1)
+                correlativo = int(correlativo_str)
+
+                venta = Venta.query.filter_by(serie=serie, correlativo=correlativo).first()
+                if not venta:
+                    errores.append(f"{f.filename}: No se encontró comprobante {doc_id} en la base de datos")
+                    continue
+
+                # Guardar con naming convention estándar
+                tipo_doc = "07" if venta.tipo_comprobante == 'NOTA_CREDITO' else ("01" if serie.startswith('F') else "03")
+                correlativo_fmt = str(correlativo).zfill(8)
+                nombre_base = f"{app.config['EMPRESA_RUC']}-{tipo_doc}-{serie}-{correlativo_fmt}"
+                cdr_path = os.path.join(folder, f"R-{nombre_base}.xml")
+
+                with open(cdr_path, 'wb') as out:
+                    out.write(content)
+
+                venta.cdr_path = cdr_path
+                importados += 1
+                print(f" [CDR-IMPORT] ✅ {doc_id} → {cdr_path}")
+
+            except Exception as e:
+                errores.append(f"{f.filename}: {str(e)}")
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'importados': importados,
+            'errores': errores,
+            'message': f'{importados} CDR(s) importados correctamente.'
+        })
+
+    return render_template('importar_cdrs.html')
+
+
 @app.route('/admin/ventas/recuperar-cdrs', methods=['POST'])
 @login_required
 def recuperar_cdrs_masivo():
