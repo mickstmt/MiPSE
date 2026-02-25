@@ -1386,7 +1386,7 @@ def importar_cdrs():
                 serie, correlativo_str = doc_id.rsplit('-', 1)
                 correlativo = int(correlativo_str)
 
-                venta = Venta.query.filter_by(serie=serie, correlativo=correlativo).first()
+                venta = Venta.query.filter_by(serie=serie, correlativo=str(correlativo)).first()
                 if not venta:
                     errores.append(f"{f.filename}: No se encontró comprobante {doc_id} en la base de datos")
                     continue
