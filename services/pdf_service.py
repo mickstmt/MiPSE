@@ -38,7 +38,9 @@ def generar_pdf_boleta(venta, output_path):
         style_right_bold = ParagraphStyle('RightBold_Custom', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)
 
         # Columna 1: Logo (Ajustado para preservar proporción)
-        logo_path = os.path.join('static', 'img', 'logo.png')
+        # Path absoluto para que funcione independientemente del directorio de trabajo (Docker/Gunicorn)
+        _base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        logo_path = os.path.join(_base_dir, 'static', 'img', 'logo.png')
         if os.path.exists(logo_path):
             from PIL import Image as PILImage
             img_temp = PILImage.open(logo_path)
