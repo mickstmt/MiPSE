@@ -361,6 +361,10 @@
                         <input type="text" class="form-control form-control-sm" name="numero_orden" id="numero_orden"
                             placeholder="Requerido" required>
                     </div>
+                    <div class="col-12 mt-2">
+                        <label class="form-label small fw-bold text-muted">FECHA DE EMISIÓN</label>
+                        <input type="date" class="form-control form-control-sm" name="fecha_emision" id="fecha_emision">
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" id="btnFinalizar" disabled>
@@ -575,7 +579,15 @@
     let cart = [];
     let selectedCategoryId = 0;
 
+    function todayISO() {
+        const d = new Date();
+        return d.toISOString().split('T')[0];
+    }
+
     $(document).ready(function () {
+        // Inicializar fecha de emisión con hoy
+        $('#fecha_emision').val(todayISO());
+
         // Inicializar Select2
         $('.select2-categories').select2({
             theme: 'bootstrap-5',
@@ -981,6 +993,7 @@
                 // Resetear campos del formulario
                 $('#numero_orden').val('');
                 $('#costo_envio').val('0.00');
+                $('#fecha_emision').val(todayISO());
                 renderCart();
             }
         });

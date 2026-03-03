@@ -586,6 +586,15 @@ def nueva_venta():
                 costo_envio = float(costo_envio_str)
             except ValueError:
                 costo_envio = 0.0
+
+            # Fecha de emisión (opcional, default: hoy)
+            fecha_emision_str = request.form.get('fecha_emision', '').strip()
+            fecha_emision_custom = None
+            if fecha_emision_str:
+                try:
+                    fecha_emision_custom = datetime.strptime(fecha_emision_str, '%Y-%m-%d')
+                except ValueError:
+                    pass
                 
             items_data = request.form.getlist('items[]')
             
@@ -614,6 +623,7 @@ def nueva_venta():
                 subtotal=0,
                 total=0,
                 costo_envio=costo_envio,
+                fecha_emision=fecha_emision_custom or datetime.now(),
                 estado='PENDIENTE'
             )
             
@@ -1848,7 +1858,16 @@ def bulk_process():
     try:
         data = request.json
         orders = data.get('orders', [])
-        
+
+        # Fecha de emisión global para todo el lote (opcional, default: hoy)
+        fecha_emision_bulk = None
+        fecha_emision_str = data.get('fecha_emision', '').strip()
+        if fecha_emision_str:
+            try:
+                fecha_emision_bulk = datetime.strptime(fecha_emision_str, '%Y-%m-%d')
+            except ValueError:
+                pass
+
         results = {'success': 0, 'errors': 0}
         
         for o in orders:
@@ -1904,6 +1923,7 @@ def bulk_process():
                     subtotal=o['total'],
                     costo_envio=o.get('costo_envio', 0.0),
                     fecha_pedido=fecha_ped,
+                    fecha_emision=fecha_emision_bulk or datetime.now(),
                     estado='PENDIENTE'
                 )
                 db.session.add(venta)
