@@ -544,11 +544,12 @@ def ventas_list():
 
     # Ordenamiento dinámico
     sort_map = {
-        'orden':       Venta.numero_orden,
-        'comprobante': Venta.numero_completo,
-        'cliente':     Cliente.nombres,
-        'total':       Venta.total,
-        'estado':      Venta.estado,
+        'orden':        Venta.numero_orden,
+        'comprobante':  Venta.numero_completo,
+        'cliente':      Cliente.nombres,
+        'total':        Venta.total,
+        'estado':       Venta.estado,
+        'fecha_pedido': Venta.fecha_pedido,
     }
     if sort == 'fecha':
         query = query.order_by(Venta.fecha_emision.asc() if sort_dir == 'asc' else Venta.fecha_emision.desc())

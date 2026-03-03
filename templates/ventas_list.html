@@ -61,12 +61,12 @@
                     %}style="display:none" {% endif %}>
                     <div class="flex-fill">
                         <label class="form-label text-muted small fw-semibold mb-1">Desde</label>
-                        <input type="date" class="form-control border-0 bg-light rounded-pill" name="fecha_desde"
+                        <input type="date" class="form-control border-0 bg-light rounded-pill" name="fecha_desde" id="fecha_desde"
                             value="{{ fecha_desde }}">
                     </div>
                     <div class="flex-fill">
                         <label class="form-label text-muted small fw-semibold mb-1">Hasta</label>
-                        <input type="date" class="form-control border-0 bg-light rounded-pill" name="fecha_hasta"
+                        <input type="date" class="form-control border-0 bg-light rounded-pill" name="fecha_hasta" id="fecha_hasta"
                             value="{{ fecha_hasta }}">
                     </div>
                 </div>
@@ -97,7 +97,7 @@
                 {% if q %}<span class="text-muted small">Búsqueda: <strong>"{{ q }}"</strong></span>{% endif %}
                 {% if fecha_desde or fecha_hasta %}
                 <span class="text-muted small">
-                    Fechas: <strong>{{ fecha_desde or '...' }}</strong> → <strong>{{ fecha_hasta or 'hoy' }}</strong>
+                    F. Emisión: <strong>{{ fecha_desde or '...' }}</strong> → <strong>{{ fecha_hasta or 'hoy' }}</strong>
                 </span>
                 {% endif %}
             </div>
@@ -190,12 +190,13 @@
                             <input type="checkbox" id="select-all" class="big-check" onchange="toggleSelectAll(this)">
                         </th>
                         {{ sort_th('N° Orden', 'orden') }}
+                        {{ sort_th('F. Pedido', 'fecha_pedido', 'text-nowrap') }}
+                        {{ sort_th('F. Emisión', 'fecha', 'text-nowrap') }}
                         {{ sort_th('Comprobante', 'comprobante') }}
                         {{ sort_th('Cliente', 'cliente') }}
                         <th class="py-3 text-muted small text-uppercase">Documento</th>
                         {{ sort_th('Total', 'total') }}
                         {{ sort_th('Estado', 'estado') }}
-                        {{ sort_th('Fecha', 'fecha') }}
                         <th class="pe-3 py-3 text-muted small text-uppercase text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -216,6 +217,16 @@
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
+                        </td>
+                        <td class="small text-muted text-nowrap">
+                            {% if venta.fecha_pedido %}
+                                {{ venta.fecha_pedido.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                <span class="opacity-50">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted text-nowrap">
+                            {{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}
                         </td>
                         <td>
                             <span class="fw-bold">{{ venta.numero_completo }}</span>
@@ -241,7 +252,6 @@
                             {% elif venta.estado == 'RECHAZADO' %}
                             <span class="badge bg-danger-subtle text-danger rounded-pill px-2">Rechazado</span>
                             {% endif %}
-                        <td class="small text-muted">{{ venta.fecha_emision.strftime('%d/%m/%Y %H:%M') }}</td>
                         <td class="pe-3 text-end">
                             <div class="btn-group btn-group-sm">
                                 <a href="{{ url_for('ver_venta', venta_id=venta.id) }}"
@@ -423,6 +433,14 @@
             document.getElementById('campo-busqueda').focus();
         }
     }
+
+    // Auto-fill fecha "Hasta" al seleccionar "Desde" (solo si Hasta está vacío)
+    document.getElementById('fecha_desde').addEventListener('change', function () {
+        const hasta = document.getElementById('fecha_hasta');
+        if (hasta && !hasta.value) {
+            hasta.value = this.value;
+        }
+    });
 
     // Actualizar placeholder según el tipo de filtro
     document.getElementById('tipo_filtro').addEventListener('change', function () {
