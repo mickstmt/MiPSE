@@ -482,7 +482,7 @@ def api_registrar_cliente():
 @app.route('/ventas')
 @login_required
 def ventas_list():
-    from sqlalchemy import or_, func
+    from sqlalchemy import or_
     from datetime import datetime
 
     tipo_filtro = request.args.get('tipo_filtro', '')
@@ -528,18 +528,17 @@ def ventas_list():
                 )
             )
 
-    # Filtro por fechas — usa fecha_pedido cuando existe, si no fecha_emision
-    fecha_real = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
+    # Filtro por fechas — usa fecha_emision (es la fecha visible en la columna FECHA)
     if fecha_desde:
         try:
-            query = query.filter(fecha_real >= datetime.strptime(fecha_desde, '%Y-%m-%d'))
+            query = query.filter(Venta.fecha_emision >= datetime.strptime(fecha_desde, '%Y-%m-%d'))
         except ValueError:
             pass
     if fecha_hasta:
         try:
             from datetime import timedelta
             hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d') + timedelta(days=1)
-            query = query.filter(fecha_real < hasta)
+            query = query.filter(Venta.fecha_emision < hasta)
         except ValueError:
             pass
 
@@ -552,13 +551,12 @@ def ventas_list():
         'estado':      Venta.estado,
     }
     if sort == 'fecha':
-        fecha_col = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
-        query = query.order_by(fecha_col.asc() if sort_dir == 'asc' else fecha_col.desc())
+        query = query.order_by(Venta.fecha_emision.asc() if sort_dir == 'asc' else Venta.fecha_emision.desc())
     elif sort and sort in sort_map:
         sort_col = sort_map[sort]
         query = query.order_by(sort_col.asc() if sort_dir == 'asc' else sort_col.desc())
     else:
-        query = query.order_by(func.coalesce(Venta.fecha_pedido, Venta.fecha_emision).desc())
+        query = query.order_by(Venta.fecha_emision.desc())
 
     pagination = query.paginate(page=page, per_page=25, error_out=False)
     ventas = pagination.items
