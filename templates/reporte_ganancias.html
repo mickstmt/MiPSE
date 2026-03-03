@@ -201,7 +201,8 @@
             </thead>
             <tbody>
                 {% for fila in datos %}
-                <tr class="border-bottom border-light">
+                {% set es_nc = fila.venta.tipo_comprobante == 'NOTA_CREDITO' %}
+                <tr class="border-bottom border-light {{ 'bg-danger-subtle' if es_nc else '' }}">
                     <td class="ps-4 fw-semibold text-primary">
                         {% if fila.venta.numero_orden %}
                         #{{ fila.venta.numero_orden }}
@@ -217,17 +218,31 @@
                         </a>
                         {% endif %}
                         {{ fila.venta.numero_completo }}
+                        {% if es_nc %}
+                        <span class="badge bg-danger ms-1" title="Nota de Crédito — resta del ingreso">NC</span>
+                        {% endif %}
                     </td>
                     <td class="text-muted small">{{ fila.fecha_real.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td class="text-end fw-semibold text-primary">S/ {{ "%.2f"|format(fila.ingreso) }}</td>
-                    <td class="text-end text-danger">S/ {{ "%.2f"|format(fila.costo_total) }}</td>
-                    <td class="text-end text-warning-emphasis">S/ {{ "%.2f"|format(fila.costo_envio) }}</td>
-                    <td class="text-end fw-bold text-success">S/ {{ "%.2f"|format(fila.ganancia) }}</td>
+                    <td class="text-end fw-semibold {{ 'text-danger' if es_nc else 'text-primary' }}">
+                        {{ '-' if es_nc else '' }}S/ {{ "%.2f"|format(fila.ingreso|abs) }}
+                    </td>
+                    <td class="text-end text-danger">
+                        {% if fila.costo_total > 0 %}S/ {{ "%.2f"|format(fila.costo_total) }}{% else %}—{% endif %}
+                    </td>
+                    <td class="text-end text-warning-emphasis">
+                        {% if fila.costo_envio > 0 %}S/ {{ "%.2f"|format(fila.costo_envio) }}{% else %}—{% endif %}
+                    </td>
+                    <td class="text-end fw-bold {{ 'text-danger' if fila.ganancia < 0 else 'text-success' }}">
+                        {{ '-' if fila.ganancia < 0 else '' }}S/ {{ "%.2f"|format(fila.ganancia|abs) }}
+                    </td>
                     <td class="text-end pe-4">
-                        <span
-                            class="badge {% if fila.margen >= 30 %}bg-success-subtle text-success{% elif fila.margen >= 10 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %} rounded-pill">
+                        {% if es_nc %}
+                        <span class="badge bg-danger-subtle text-danger rounded-pill" title="Anulación de ingreso">—</span>
+                        {% else %}
+                        <span class="badge {% if fila.margen >= 30 %}bg-success-subtle text-success{% elif fila.margen >= 10 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %} rounded-pill">
                             {{ "%.1f"|format(fila.margen) }}%
                         </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}
