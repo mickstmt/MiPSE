@@ -9,6 +9,7 @@ from reportlab.graphics.shapes import Drawing
 from datetime import datetime
 import os
 import decimal
+from flask import current_app
 from .utils import number_to_words_es
 
 def generar_pdf_boleta(venta, output_path):
@@ -38,9 +39,7 @@ def generar_pdf_boleta(venta, output_path):
         style_right_bold = ParagraphStyle('RightBold_Custom', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)
 
         # Columna 1: Logo (Ajustado para preservar proporción)
-        # Path absoluto para que funcione independientemente del directorio de trabajo (Docker/Gunicorn)
-        _base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logo_path = os.path.join(_base_dir, 'static', 'img', 'logo.png')
+        logo_path = os.path.join(current_app.root_path, 'static', 'img', 'logo.png')
         if os.path.exists(logo_path):
             from PIL import Image as PILImage
             img_temp = PILImage.open(logo_path)
