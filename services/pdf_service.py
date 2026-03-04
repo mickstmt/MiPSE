@@ -9,7 +9,6 @@ from reportlab.graphics.shapes import Drawing
 from datetime import datetime
 import os
 import decimal
-from flask import current_app
 from .utils import number_to_words_es
 
 def generar_pdf_boleta(venta, output_path):
@@ -38,29 +37,12 @@ def generar_pdf_boleta(venta, output_path):
         style_right = ParagraphStyle('Right_Custom', parent=styles['Normal'], fontSize=8, leading=10, alignment=TA_RIGHT)
         style_right_bold = ParagraphStyle('RightBold_Custom', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)
 
-        # Columna 1: Logo (Ajustado para preservar proporción)
-        logo_path = os.path.join(current_app.root_path, 'static', 'img', 'logo.png')
+        # Columna 1: Logo
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'img', 'logo.png')
         if os.path.exists(logo_path):
-            from PIL import Image as PILImage
-            img_temp = PILImage.open(logo_path)
-            img_w, img_h = img_temp.size
-            img_temp.close()
-            
-            # Ajustar a un máximo de 40mm x 30mm manteniendo la proporción
-            max_w = 40 * mm
-            max_h = 30 * mm
-            aspect = img_h / img_w
-            
-            if (max_w * aspect) <= max_h:
-                final_w = max_w
-                final_h = max_w * aspect
-            else:
-                final_h = max_h
-                final_w = max_h / aspect
-                
-            logo = Image(logo_path, width=final_w, height=final_h)
+            logo = Image(logo_path, width=40*mm, height=20*mm, kind='proportional')
         else:
-            logo = Paragraph("<b>Logo</b>", style_norm)
+            logo = Spacer(40*mm, 5*mm)
 
         # Columna 2: Datos de la Empresa
         empresa_ruc = os.getenv('EMPRESA_RUC', '10433050709')
