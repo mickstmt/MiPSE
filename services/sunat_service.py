@@ -187,6 +187,11 @@ class SUNATService:
             # Razón social
             party_legal = etree.SubElement(supplier_party, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}PartyLegalEntity")
             etree.SubElement(party_legal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}RegistrationName").text = self.razon_social
+            reg_addr = etree.SubElement(party_legal, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}RegistrationAddress")
+            addr_type2 = etree.SubElement(reg_addr, "{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}AddressTypeCode")
+            addr_type2.set("listAgencyName", "PE:SUNAT")
+            addr_type2.set("listName", "Establecimientos anexos")
+            addr_type2.text = "0000"
 
             # === ACCOUNTING CUSTOMER PARTY (Cliente) ===
             customer = etree.SubElement(invoice, "{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}AccountingCustomerParty")
@@ -446,6 +451,11 @@ class SUNATService:
             etree.SubElement(country, f"{{{cbc}}}IdentificationCode").text = "PE"
             party_legal = etree.SubElement(supplier_party, f"{{{cac}}}PartyLegalEntity")
             etree.SubElement(party_legal, f"{{{cbc}}}RegistrationName").text = self.razon_social
+            reg_addr = etree.SubElement(party_legal, f"{{{cac}}}RegistrationAddress")
+            addr_type2 = etree.SubElement(reg_addr, f"{{{cbc}}}AddressTypeCode")
+            addr_type2.set("listAgencyName", "PE:SUNAT")
+            addr_type2.set("listName", "Establecimientos anexos")
+            addr_type2.text = "0000"
 
             # === CUSTOMER ===
             customer = etree.SubElement(root, f"{{{cac}}}AccountingCustomerParty")
