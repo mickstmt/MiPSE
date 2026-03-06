@@ -38,7 +38,13 @@
                 <div class="col-12 col-md-2">
                     <a href="{{ url_for('reporte_ganancias_exportar', fecha_inicio=fecha_inicio or '', fecha_fin=fecha_fin or '') }}"
                         class="btn btn-success w-100 rounded-pill">
-                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+                        <i class="bi bi-file-earmark-excel me-1"></i> Consolidado
+                    </a>
+                </div>
+                <div class="col-12 col-md-2">
+                    <a href="{{ url_for('reporte_ganancias_exportar_detallado', fecha_inicio=fecha_inicio or '', fecha_fin=fecha_fin or '') }}"
+                        class="btn btn-outline-success w-100 rounded-pill">
+                        <i class="bi bi-table me-1"></i> Detallado
                     </a>
                 </div>
                 {# Botón Importar deshabilitado — corrección histórica completada #}

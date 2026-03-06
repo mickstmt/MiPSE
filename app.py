@@ -2767,6 +2767,177 @@ def reporte_ganancias_exportar():
     )
 
 
+@app.route('/admin/reporte-ganancias/exportar-detallado')
+@login_required
+@permiso_requerido('ventas.ver')
+def reporte_ganancias_exportar_detallado():
+    from models import CostoProducto
+    from services.utils import extraer_skus_base
+    import pandas as pd
+    from io import BytesIO
+
+    fecha_inicio = request.args.get('fecha_inicio')
+    fecha_fin    = request.args.get('fecha_fin')
+
+    query = Venta.query.filter(
+        Venta.estado != 'BORRADOR',
+        Venta.tipo_comprobante != 'NOTA_CREDITO'
+    )
+    if fecha_inicio and fecha_fin:
+        fecha_eval = func.coalesce(Venta.fecha_pedido, Venta.fecha_emision)
+        query = query.filter(fecha_eval.between(f"{fecha_inicio} 00:00:00", f"{fecha_fin} 23:59:59"))
+
+    ventas = query.order_by(func.coalesce(Venta.fecha_pedido, Venta.fecha_emision).desc()).all()
+
+    costos_db = CostoProducto.query.all()
+    mapa_costos = {}
+    for c in costos_db:
+        sku_str = str(c.sku).split('.')[0].strip()
+        if sku_str:
+            mapa_costos[sku_str] = float(c.costo)
+
+    TIPO_CAMBIO = 3.75
+    rows = []
+
+    for venta in ventas:
+        fecha_real = venta.fecha_pedido or venta.fecha_emision
+        for item in venta.items:
+            if item.producto_sku == 'ENVIO':
+                continue
+            skus_extraidos = extraer_skus_base(item.producto_sku)
+            costo_unit_usd = sum(mapa_costos.get(s, 0.0) for s in skus_extraidos)
+            costo_unit_pen = costo_unit_usd * TIPO_CAMBIO
+            costo_total    = costo_unit_pen * float(item.cantidad)
+            ingreso_item   = float(item.subtotal)
+            ganancia       = ingreso_item - costo_total
+            margen         = (ganancia / ingreso_item * 100) if ingreso_item != 0 else 0.0
+
+            rows.append({
+                'Orden':             venta.numero_orden or 'N/A',
+                'Comprobante':       venta.numero_completo,
+                'Fecha':             fecha_real.strftime('%Y-%m-%d'),
+                'SKU':               item.producto_sku or '',
+                'Producto':          item.producto_nombre,
+                'Cantidad':          float(item.cantidad),
+                'Precio Unit. (S/)': round(float(item.precio_unitario), 2),
+                'Ingreso Item (S/)': round(ingreso_item, 2),
+                'Costo Unit. USD':   round(costo_unit_usd, 4),
+                'Costo Unit. (S/)':  round(costo_unit_pen, 2),
+                'Costo Total (S/)':  round(costo_total, 2),
+                'Ganancia (S/)':     round(ganancia, 2),
+                'Margen (%)':        round(margen, 2),
+            })
+
+    df = pd.DataFrame(rows)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Detallado')
+
+        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
+        ws = writer.sheets['Detallado']
+
+        HEADER_BG   = PatternFill('solid', fgColor='1E3A5F')
+        HEADER_FONT = Font(color='FFFFFF', bold=True, size=11)
+        TOTAL_BG    = PatternFill('solid', fgColor='E8F4FD')
+        TOTAL_FONT  = Font(bold=True, size=11)
+        ROW_ALT_BG  = PatternFill('solid', fgColor='F7FAFD')
+        BORDER_SIDE = Side(style='thin', color='BDD7EE')
+        CELL_BORDER = Border(left=BORDER_SIDE, right=BORDER_SIDE,
+                             top=BORDER_SIDE,  bottom=BORDER_SIDE)
+        CENTER = Alignment(horizontal='center', vertical='center')
+        RIGHT  = Alignment(horizontal='right',  vertical='center')
+        LEFT   = Alignment(horizontal='left',   vertical='center')
+
+        col_widths = {
+            'A': 14, 'B': 18, 'C': 13, 'D': 16, 'E': 34,
+            'F': 10, 'G': 16, 'H': 16, 'I': 14, 'J': 15,
+            'K': 15, 'L': 15, 'M': 12,
+        }
+        for col, width in col_widths.items():
+            ws.column_dimensions[col].width = width
+        ws.row_dimensions[1].height = 28
+
+        n_cols = len(df.columns)
+        n_rows = len(df)
+
+        for col_idx in range(1, n_cols + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.fill      = HEADER_BG
+            cell.font      = HEADER_FONT
+            cell.border    = CELL_BORDER
+            cell.alignment = CENTER
+
+        num_fmt_soles = '"S/"#,##0.00'
+        num_fmt_usd   = '"$"#,##0.0000'
+        num_fmt_pct   = '0.00"%"'
+
+        for row_idx in range(2, n_rows + 2):
+            is_alt = (row_idx % 2 == 0)
+            ws.row_dimensions[row_idx].height = 18
+            for col_idx in range(1, n_cols + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.border = CELL_BORDER
+                if is_alt:
+                    cell.fill = ROW_ALT_BG
+                if col_idx in (1, 2, 3, 6):       # Orden, Comprobante, Fecha, Cantidad
+                    cell.alignment = CENTER
+                elif col_idx in (4, 5):            # SKU, Producto
+                    cell.alignment = LEFT
+                elif col_idx in (7, 8):            # Precio Unit, Ingreso Item
+                    cell.alignment     = RIGHT
+                    cell.number_format = num_fmt_soles
+                elif col_idx == 9:                 # Costo Unit USD
+                    cell.alignment     = RIGHT
+                    cell.number_format = num_fmt_usd
+                elif col_idx in (10, 11, 12):      # Costo Unit PEN, Costo Total, Ganancia
+                    cell.alignment     = RIGHT
+                    cell.number_format = num_fmt_soles
+                elif col_idx == 13:                # Margen
+                    cell.alignment     = RIGHT
+                    cell.number_format = num_fmt_pct
+
+        total_row = n_rows + 2
+        ws.row_dimensions[total_row].height = 22
+
+        totals = {
+            8:  df['Ingreso Item (S/)'].sum(),
+            11: df['Costo Total (S/)'].sum(),
+            12: df['Ganancia (S/)'].sum(),
+            13: df['Margen (%)'].mean() if n_rows > 0 else 0,
+        }
+        labels = {1: 'TOTAL', 3: f'{n_rows} items'}
+
+        for col_idx in range(1, n_cols + 1):
+            cell = ws.cell(row=total_row, column=col_idx)
+            cell.fill   = TOTAL_BG
+            cell.font   = TOTAL_FONT
+            cell.border = CELL_BORDER
+            if col_idx in labels:
+                cell.value     = labels[col_idx]
+                cell.alignment = CENTER if col_idx == 1 else RIGHT
+            elif col_idx in totals:
+                cell.value         = round(totals[col_idx], 2)
+                cell.alignment     = RIGHT
+                cell.number_format = num_fmt_soles if col_idx < 13 else num_fmt_pct
+
+        ws.freeze_panes = 'A2'
+
+    output.seek(0)
+
+    rango_fecha = "Historico"
+    if fecha_inicio and fecha_fin:
+        rango_fecha = f"{fecha_inicio}_al_{fecha_fin}"
+
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'Reporte_Detallado_{rango_fecha}.xlsx'
+    )
+
+
 # Iniciar directorios
 os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(Config.COMPROBANTES_PATH, exist_ok=True)
