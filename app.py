@@ -2623,10 +2623,15 @@ def reporte_ganancias_exportar():
             costo_item_unitario_pen = costo_item_unitario_usd * TIPO_CAMBIO
             venta_costo_total += costo_item_unitario_pen * float(item.cantidad)
 
-        costo_envio = float(venta.costo_envio or 0.0)
-        ingreso = float(venta.total) if tiene_envio_item else float(venta.total) + costo_envio
+        if venta.tipo_comprobante == 'NOTA_CREDITO':
+            ingreso = -float(venta.total)
+            venta_costo_total = 0.0
+            costo_envio = 0.0
+        else:
+            costo_envio = float(venta.costo_envio or 0.0)
+            ingreso = float(venta.total) if tiene_envio_item else float(venta.total) + costo_envio
         ganancia = ingreso - venta_costo_total - costo_envio
-        margen = (ganancia / ingreso * 100) if ingreso > 0 else 0.0
+        margen = (ganancia / ingreso * 100) if ingreso != 0 else 0.0
         
         fecha_real = venta.fecha_pedido or venta.fecha_emision
         
@@ -2647,10 +2652,7 @@ def reporte_ganancias_exportar():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Ganancias')
 
-        from openpyxl.styles import (PatternFill, Font, Alignment, Border, Side,
-                                     GradientFill)
-        from openpyxl.utils import get_column_letter
-        from openpyxl.styles.numbers import FORMAT_NUMBER_COMMA_SEP1
+        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
         ws = writer.sheets['Ganancias']
 
